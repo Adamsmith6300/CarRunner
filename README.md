@@ -3,4 +3,4 @@
 Boilerplate cube project in folder Demo.
 Solution file under Demo\D3D12Project\
 
-Commons indludes reusable basic classes.
+Commons includes reusable basic classes.
