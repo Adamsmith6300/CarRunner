@@ -102,7 +102,12 @@ private:
 	// List of all the render items.
 	std::vector<std::unique_ptr<RenderItem>> mAllRitems;
     RenderItem* mBoxItemMovable;
-    XMFLOAT3 keyboardInput = { 0.0f, 0.0f, 0.0f };
+    XMFLOAT3 pos = { 0.0f, 0.0f, 0.0f };
+    XMFLOAT3 right = {pos.x+1, pos.y, pos.z};
+    XMFLOAT3 up = { pos.x, pos.y+1, pos.z };
+    XMFLOAT3 look = { pos.x, pos.y, pos.z+1 };
+    Entity ent{ pos, right, up, look };
+    //XMFLOAT3 keyboardInput = { 0.0f, 0.0f, 0.0f };
 
 	// Render items divided by PSO.
 	std::vector<RenderItem*> mOpaqueRitems;
@@ -315,26 +320,33 @@ void App::OnKeyboardInput(const GameTimer& gt)
     const float dt = gt.DeltaTime();
     float boxSpeed = 3.0f * dt;
 
+
     if (GetAsyncKeyState('W') & 0x8000)
-        keyboardInput.z += boxSpeed;
+        pos.z += boxSpeed;
+        //keyboardInput.z += boxSpeed;
 
     if (GetAsyncKeyState('S') & 0x8000)
-        keyboardInput.z -= boxSpeed;
+        pos.z -= boxSpeed;
+        //keyboardInput.z -= boxSpeed;
 
     if (GetAsyncKeyState('A') & 0x8000)
-        keyboardInput.x -= boxSpeed;
+        pos.x -= boxSpeed;
+        //keyboardInput.x -= boxSpeed;
 
     if (GetAsyncKeyState('D') & 0x8000)
-        keyboardInput.x += boxSpeed;
-
+        pos.x += boxSpeed;
+        //keyboardInput.x += boxSpeed;
+    
     if (GetAsyncKeyState('I') & 0x8000)
-        keyboardInput.y += boxSpeed;
+        pos.y += boxSpeed;
+        //keyboardInput.y += boxSpeed;
 
     if (GetAsyncKeyState('K') & 0x8000)
-        keyboardInput.y -= boxSpeed;
+        pos.y -= boxSpeed;
+        //keyboardInput.y -= boxSpeed;
 
 	//-----------------------------------------------------------
-	if (GetAsyncKeyState(VK_UP) & 0x8000)
+	/*if (GetAsyncKeyState(VK_UP) & 0x8000)
 		mCamera.Walk(10.0f * dt);
 
 	if (GetAsyncKeyState(VK_DOWN) & 0x8000)
@@ -344,9 +356,11 @@ void App::OnKeyboardInput(const GameTimer& gt)
 		mCamera.Strafe(-10.0f * dt);
 
 	if (GetAsyncKeyState(VK_RIGHT) & 0x8000)
-		mCamera.Strafe(10.0f * dt);
+		mCamera.Strafe(10.0f * dt);*/
 
+    ent.SetPosition(pos);
     mBoxItemMovable->NumFramesDirty++;
+    mCamera.SetPosition(ent.getHPos());
 	mCamera.UpdateViewMatrix();
 
 }
@@ -363,7 +377,7 @@ void App::UpdateObjectCBs(const GameTimer& gt)
 		{
 			XMMATRIX world = XMLoadFloat4x4(&e->World);
             if (e->ObjCBIndex == 0) {
-                world = world * XMMatrixTranslation(keyboardInput.x, keyboardInput.y, keyboardInput.z);
+                world = world * XMMatrixTranslation(ent.GetPosition3f().x, ent.GetPosition3f().y, ent.GetPosition3f().z);
             }
 			ObjectConstants objConstants;
 			XMStoreFloat4x4(&objConstants.World, XMMatrixTranspose(world));
