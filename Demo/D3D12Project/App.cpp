@@ -8,6 +8,8 @@
 #include "../../Common/MathHelper.h"
 #include "../../Common/UploadBuffer.h"
 #include "../../Common/GeometryGenerator.h"
+#include "../../Common/camera.h"
+#include "../../Common/Entity.h"
 #include "FrameResource.h"
 
 using Microsoft::WRL::ComPtr;
