@@ -8,6 +8,8 @@ class Entity
 {
 private:
 	POS mPosition;
+	POS mHeadPos;
+	float headOffset = 3;
 	POS mRight;
 	POS mUp;
 	POS mLook;
@@ -22,6 +24,8 @@ public:
 	POS GetPosition3f()const;
 	void SetPosition(float x, float y, float z);
 	void SetPosition(const POS& v);
+	void updateHPos();
+	POS getHPos();
 
 	DIRV GetRight()const;
 	POS GetRight3f()const;

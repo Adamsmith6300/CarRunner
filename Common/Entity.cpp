@@ -5,6 +5,7 @@ Entity::Entity() {
 	mRight = { 1.0f, 0.0f, 0.0f };
 	mUp = { 0.0f, 1.0f, 0.0f };
 	mLook = { 0.0f, 0.0f, 1.0f };
+	updateHPos();
 }
 
 Entity::Entity(POS position, POS right, POS up, POS look) {
@@ -12,6 +13,7 @@ Entity::Entity(POS position, POS right, POS up, POS look) {
 	mRight = right;
 	mUp = up;
 	mLook = look;
+	updateHPos();
 }
 
 void Entity::walk(float d) {
@@ -35,11 +37,23 @@ POS Entity::GetPosition3f()const
 void Entity::SetPosition(float x, float y, float z)
 {
 	mPosition = POS(x, y, z);
+	updateHPos();
 }
 
 void Entity::SetPosition(const POS& v)
 {
 	mPosition = v;
+	updateHPos();
+}
+
+void Entity::updateHPos() {
+	mHeadPos.x = mPosition.x;
+	mHeadPos.y = mPosition.y + headOffset;
+	mHeadPos.z = mPosition.z;
+}
+
+POS Entity::getHPos() {
+	return mHeadPos;
 }
 
 DIRV Entity::GetRight()const
