@@ -18,6 +18,10 @@ using namespace DirectX::PackedVector;
 
 const int gNumFrameResources = 3;
 
+//For Development only
+const bool isTopDown = false;
+XMFLOAT3 topPos = { 0.0f, 5.0f, -15.0f };
+
 // Lightweight structure stores parameters to draw a shape.  This will
 // vary from app-to-app.
 struct RenderItem
@@ -165,7 +169,6 @@ bool App::Initialize()
     // Reset the command list to prep for initialization commands.
     ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
 
-	mCamera.SetPosition(0.0f, 5.0f, -15.0f);//Initial camera position-------------------------------------------------------
     BuildRootSignature();
     BuildShadersAndInputLayout();
     BuildShapeGeometry();
@@ -300,18 +303,18 @@ void App::OnMouseUp(WPARAM btnState, int x, int y)
 
 void App::OnMouseMove(WPARAM btnState, int x, int y)
 {
-    if((btnState & MK_LBUTTON) != 0)
-    {
-        // Make each pixel correspond to a quarter of a degree.
-        float dx = XMConvertToRadians(0.25f*static_cast<float>(x - mLastMousePos.x));
-        float dy = XMConvertToRadians(0.25f*static_cast<float>(y - mLastMousePos.y));
+        if ((btnState & MK_LBUTTON) != 0)
+        {
+            // Make each pixel correspond to a quarter of a degree.
+            float dx = XMConvertToRadians(0.25f * static_cast<float>(x - mLastMousePos.x));
+            float dy = XMConvertToRadians(0.25f * static_cast<float>(y - mLastMousePos.y));
 
-		mCamera.Pitch(dy);
-		mCamera.RotateY(dx);
-    }
+            mCamera.Pitch(dy);
+            mCamera.RotateY(dx);
+        }
 
-    mLastMousePos.x = x;
-    mLastMousePos.y = y;
+        mLastMousePos.x = x;
+        mLastMousePos.y = y;
 }
  
 void App::OnKeyboardInput(const GameTimer& gt)
