@@ -20,7 +20,7 @@ const int gNumFrameResources = 3;
 
 //For Development only
 const bool isTopDown = false;
-XMFLOAT3 topPos = { 0.0f, 5.0f, -15.0f };
+XMFLOAT3 topPos = { 0.0f, 20.0f, 0.0f };
 
 // Lightweight structure stores parameters to draw a shape.  This will
 // vary from app-to-app.
@@ -163,6 +163,10 @@ App::~App()
 
 bool App::Initialize()
 {
+    if (isTopDown) {
+        mCamera.SetPosition(topPos);
+        mCamera.Pitch(MathHelper::Pi / 2);
+    }
     if(!D3DApp::Initialize())
         return false;
 
@@ -308,7 +312,6 @@ void App::OnMouseMove(WPARAM btnState, int x, int y)
             // Make each pixel correspond to a quarter of a degree.
             float dx = XMConvertToRadians(0.25f * static_cast<float>(x - mLastMousePos.x));
             float dy = XMConvertToRadians(0.25f * static_cast<float>(y - mLastMousePos.y));
-
             mCamera.Pitch(dy);
             mCamera.RotateY(dx);
         }
@@ -363,9 +366,10 @@ void App::OnKeyboardInput(const GameTimer& gt)
 
     ent.SetPosition(pos);
     mBoxItemMovable->NumFramesDirty++;
-    mCamera.SetPosition(ent.getHPos());
-	mCamera.UpdateViewMatrix();
-
+    if (!isTopDown) {
+        mCamera.SetPosition(ent.getHPos());
+    }
+    mCamera.UpdateViewMatrix();
 }
  
 
