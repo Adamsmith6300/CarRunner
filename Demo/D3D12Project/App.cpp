@@ -8,6 +8,8 @@
 #include "../../Common/MathHelper.h"
 #include "../../Common/UploadBuffer.h"
 #include "../../Common/GeometryGenerator.h"
+#include "../../Common/camera.h"
+#include "../../Common/Entity.h"
 #include "FrameResource.h"
 
 using Microsoft::WRL::ComPtr;
@@ -15,6 +17,10 @@ using namespace DirectX;
 using namespace DirectX::PackedVector;
 
 const int gNumFrameResources = 3;
+
+//For Development only
+const bool isTopDown = true;
+XMFLOAT3 topPos = { 0.0f, 20.0f, 0.0f };
 
 // Lightweight structure stores parameters to draw a shape.  This will
 // vary from app-to-app.
@@ -71,7 +77,6 @@ private:
     virtual void OnMouseMove(WPARAM btnState, int x, int y)override;
 
     void OnKeyboardInput(const GameTimer& gt);
-	void UpdateCamera(const GameTimer& gt);
 	void UpdateObjectCBs(const GameTimer& gt);
 	void UpdateMainPassCB(const GameTimer& gt);
 
@@ -109,7 +114,12 @@ private:
 	// List of all the render items.
 	std::vector<std::unique_ptr<RenderItem>> mAllRitems;
     RenderItem* mBoxItemMovable;
-    XMFLOAT3 keyboardInput = { 0.0f, 0.0f, 0.0f };
+    XMFLOAT3 pos = { 0.0f, 0.0f, 0.0f };
+    XMFLOAT3 right = {pos.x+1, pos.y, pos.z};
+    XMFLOAT3 up = { pos.x, pos.y+1, pos.z };
+    XMFLOAT3 look = { pos.x, pos.y, pos.z+1 };
+    Entity ent{ pos, right, up, look };
+    //XMFLOAT3 keyboardInput = { 0.0f, 0.0f, 0.0f };
 
 	//global variables for the bounding box
 	RenderItem* firstbox = nullptr;
@@ -127,13 +137,7 @@ private:
 
     bool mIsWireframe = false;
 
-	XMFLOAT3 mEyePos = { 0.0f, 0.0f, 0.0f };
-	XMFLOAT4X4 mView = MathHelper::Identity4x4();
-	XMFLOAT4X4 mProj = MathHelper::Identity4x4();
-
-    float mTheta = 1.5f*XM_PI;
-    float mPhi = 0.2f*XM_PI;
-    float mRadius = 15.0f;
+	Camera mCamera;
 
     POINT mLastMousePos;
 };
@@ -174,6 +178,10 @@ App::~App()
 
 bool App::Initialize()
 {
+    if (isTopDown) {
+        mCamera.SetPosition(topPos);
+        mCamera.Pitch(MathHelper::Pi / 2);
+    }
     if(!D3DApp::Initialize())
         return false;
 
@@ -208,15 +216,13 @@ void App::OnResize()
 {
     D3DApp::OnResize();
 
-    // The window resized, so update the aspect ratio and recompute the projection matrix.
-    XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f*MathHelper::Pi, AspectRatio(), 1.0f, 1000.0f);
-    XMStoreFloat4x4(&mProj, P);
+    mCamera.SetLens(0.25f * MathHelper::Pi, AspectRatio(), 1.0f, 1000.0f);
+
 }
 
 void App::Update(const GameTimer& gt)
 {
     OnKeyboardInput(gt);
-	UpdateCamera(gt);
 
 	if (collisionCheck(firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex, XMLoadFloat4x4(&firstbox->World),
 		secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex, XMLoadFloat4x4(&secondbox->World))) {
@@ -328,34 +334,17 @@ void App::OnMouseUp(WPARAM btnState, int x, int y)
 
 void App::OnMouseMove(WPARAM btnState, int x, int y)
 {
-    if((btnState & MK_LBUTTON) != 0)
-    {
-        // Make each pixel correspond to a quarter of a degree.
-        float dx = XMConvertToRadians(0.25f*static_cast<float>(x - mLastMousePos.x));
-        float dy = XMConvertToRadians(0.25f*static_cast<float>(y - mLastMousePos.y));
+        if ((btnState & MK_LBUTTON) != 0)
+        {
+            // Make each pixel correspond to a quarter of a degree.
+            float dx = XMConvertToRadians(0.25f * static_cast<float>(x - mLastMousePos.x));
+            float dy = XMConvertToRadians(0.25f * static_cast<float>(y - mLastMousePos.y));
+            mCamera.Pitch(dy);
+            mCamera.RotateY(dx);
+        }
 
-        // Update angles based on input to orbit camera around box.
-        mTheta += dx;
-        mPhi += dy;
-
-        // Restrict the angle mPhi.
-        mPhi = MathHelper::Clamp(mPhi, 0.1f, MathHelper::Pi - 0.1f);
-    }
-    else if((btnState & MK_RBUTTON) != 0)
-    {
-        // Make each pixel correspond to 0.2 unit in the scene.
-        float dx = 0.05f*static_cast<float>(x - mLastMousePos.x);
-        float dy = 0.05f*static_cast<float>(y - mLastMousePos.y);
-
-        // Update the camera radius based on input.
-        mRadius += dx - dy;
-
-        // Restrict the radius.
-        mRadius = MathHelper::Clamp(mRadius, 5.0f, 150.0f);
-    }
-
-    mLastMousePos.x = x;
-    mLastMousePos.y = y;
+        mLastMousePos.x = x;
+        mLastMousePos.y = y;
 }
 
 bool App::collisionCheck(XMVECTOR& firstboxmin, XMVECTOR& firstboxmax, XMMATRIX& firstboxworld, XMVECTOR& secondboxmin, XMVECTOR& secondboxmax, XMMATRIX& secondboxworld)
@@ -490,28 +479,35 @@ void App::OnKeyboardInput(const GameTimer& gt)
     const float dt = gt.DeltaTime();
     float boxSpeed = 3.0f * dt;
 
+
     if (GetAsyncKeyState('W') & 0x8000)
-        keyboardInput.z += boxSpeed;
+        pos.z += boxSpeed;
+        //keyboardInput.z += boxSpeed;
 
     if (GetAsyncKeyState('S') & 0x8000)
-        keyboardInput.z -= boxSpeed;
+        pos.z -= boxSpeed;
+        //keyboardInput.z -= boxSpeed;
 
     if (GetAsyncKeyState('A') & 0x8000)
-        keyboardInput.x -= boxSpeed;
+        pos.x -= boxSpeed;
+        //keyboardInput.x -= boxSpeed;
 
     if (GetAsyncKeyState('D') & 0x8000)
-        keyboardInput.x += boxSpeed;
-
+        pos.x += boxSpeed;
+        //keyboardInput.x += boxSpeed;
+    
     if (GetAsyncKeyState('I') & 0x8000)
-        keyboardInput.y += boxSpeed;
+        pos.y += boxSpeed;
+        //keyboardInput.y += boxSpeed;
 
     if (GetAsyncKeyState('K') & 0x8000)
-        keyboardInput.y -= boxSpeed;
+        pos.y -= boxSpeed;
+        //keyboardInput.y -= boxSpeed;
 
 	//box translation//
 	XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
 	XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
-	XMMATRIX boxOffset = XMMatrixTranslation(keyboardInput.x, keyboardInput.y, keyboardInput.z);
+	XMMATRIX boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
 	XMMATRIX boxWorld = boxRotate * boxScale * boxOffset;
 	firstbox->Geo;
 	XMStoreFloat4x4(&firstbox->World, boxWorld);
@@ -520,23 +516,27 @@ void App::OnKeyboardInput(const GameTimer& gt)
 	//formerly mboxritemmovable
     firstbox->NumFramesDirty++;
 
+	//-----------------------------------------------------------camera stuff------------------------------------------------------------------//
+	/*if (GetAsyncKeyState(VK_UP) & 0x8000)
+		mCamera.Walk(10.0f * dt);
+
+	if (GetAsyncKeyState(VK_DOWN) & 0x8000)
+		mCamera.Walk(-10.0f * dt);
+>>>>>>> f9806a278648c361456a459e4331716f99eb81d0
+
+	if (GetAsyncKeyState(VK_LEFT) & 0x8000)
+		mCamera.Strafe(-10.0f * dt);
+
+	if (GetAsyncKeyState(VK_RIGHT) & 0x8000)
+		mCamera.Strafe(10.0f * dt);*/
+
+    ent.SetPosition(pos);
+    if (!isTopDown) {
+        mCamera.SetPosition(ent.getHPos());
+    }
+    mCamera.UpdateViewMatrix();
 }
  
-void App::UpdateCamera(const GameTimer& gt)
-{
-	// Convert Spherical to Cartesian coordinates.
-	mEyePos.x = mRadius*sinf(mPhi)*cosf(mTheta);
-	mEyePos.z = mRadius*sinf(mPhi)*sinf(mTheta);
-	mEyePos.y = mRadius*cosf(mPhi);
-
-	// Build the view matrix.
-	XMVECTOR pos = XMVectorSet(mEyePos.x, mEyePos.y, mEyePos.z, 1.0f);
-	XMVECTOR target = XMVectorZero();
-	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-
-	XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
-	XMStoreFloat4x4(&mView, view);
-}
 
 void App::UpdateObjectCBs(const GameTimer& gt)
 {
@@ -548,7 +548,6 @@ void App::UpdateObjectCBs(const GameTimer& gt)
 		if(e->NumFramesDirty > 0)
 		{
 			XMMATRIX world = XMLoadFloat4x4(&e->World);
-            
 			ObjectConstants objConstants;
 			XMStoreFloat4x4(&objConstants.World, XMMatrixTranspose(world));
 			currObjectCB->CopyData(e->ObjCBIndex, objConstants);
@@ -561,8 +560,8 @@ void App::UpdateObjectCBs(const GameTimer& gt)
 
 void App::UpdateMainPassCB(const GameTimer& gt)
 {
-	XMMATRIX view = XMLoadFloat4x4(&mView);
-	XMMATRIX proj = XMLoadFloat4x4(&mProj);
+	XMMATRIX view = mCamera.GetView();
+	XMMATRIX proj = mCamera.GetProj();
 
 	XMMATRIX viewProj = XMMatrixMultiply(view, proj);
 	XMMATRIX invView = XMMatrixInverse(&XMMatrixDeterminant(view), view);
@@ -575,7 +574,7 @@ void App::UpdateMainPassCB(const GameTimer& gt)
 	XMStoreFloat4x4(&mMainPassCB.InvProj, XMMatrixTranspose(invProj));
 	XMStoreFloat4x4(&mMainPassCB.ViewProj, XMMatrixTranspose(viewProj));
 	XMStoreFloat4x4(&mMainPassCB.InvViewProj, XMMatrixTranspose(invViewProj));
-	mMainPassCB.EyePosW = mEyePos;
+	mMainPassCB.EyePosW = mCamera.GetPosition3f();
 	mMainPassCB.RenderTargetSize = XMFLOAT2((float)mClientWidth, (float)mClientHeight);
 	mMainPassCB.InvRenderTargetSize = XMFLOAT2(1.0f / mClientWidth, 1.0f / mClientHeight);
 	mMainPassCB.NearZ = 1.0f;
