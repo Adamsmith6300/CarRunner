@@ -10,6 +10,7 @@
 #include "../../Common/GeometryGenerator.h"
 #include "../../Common/camera.h"
 #include "../../Common/Entity.h"
+#include "../../Physics/Physics.h"
 #include "FrameResource.h"
 
 using Microsoft::WRL::ComPtr;
@@ -19,7 +20,7 @@ using namespace DirectX::PackedVector;
 const int gNumFrameResources = 3;
 
 //For Development only
-const bool isTopDown = true;
+const bool isTopDown = false;
 XMFLOAT3 topPos = { 0.0f, 20.0f, 0.0f };
 
 // Lightweight structure stores parameters to draw a shape.  This will
@@ -504,6 +505,9 @@ void App::OnKeyboardInput(const GameTimer& gt)
         pos.y -= boxSpeed;
         //keyboardInput.y -= boxSpeed;
 
+	if (GetAsyncKeyState(' ') & 0x8000)
+		ent.decrementJump();
+
 	//box translation//
 	XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
 	XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
@@ -530,6 +534,7 @@ void App::OnKeyboardInput(const GameTimer& gt)
 	if (GetAsyncKeyState(VK_RIGHT) & 0x8000)
 		mCamera.Strafe(10.0f * dt);*/
 
+	ent.resetJump(Physics::YPhysics(pos, ent.GetPhysHolder(), boxSpeed));
     ent.SetPosition(pos);
     if (!isTopDown) {
         mCamera.SetPosition(ent.getHPos());
