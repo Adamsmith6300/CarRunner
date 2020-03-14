@@ -38,11 +38,12 @@ struct RenderItem
 	// update to each FrameResource.  Thus, when we modify obect data we should set 
 	// NumFramesDirty = gNumFrameResources so that each frame resource gets the update.
 	int NumFramesDirty = gNumFrameResources;
+	// 1 for forward, 2 for backwards, 3 for left, 4 for right, 5 for up, 6 for down
+	int moveside;
 
 	// adding 
 	XMVECTOR boundingboxminvertex;
 	XMVECTOR boundingboxmaxvertex;
-
 	// Index into GPU constant buffer corresponding to the ObjectCB for this render item.
 	UINT ObjCBIndex = -1;
 
@@ -83,6 +84,9 @@ private:
 	bool collisionCheck(XMVECTOR& firstboxmin, XMVECTOR& firstboxmax, XMMATRIX& firstboxworld, XMVECTOR& secondboxmin, XMVECTOR& secondboxmax, XMMATRIX& secondboxworld);
 	void calcAABB(std::vector<XMFLOAT3> boxVerts, XMFLOAT4X4& worldspace, XMVECTOR& boxmin, XMVECTOR& boxmax);
 	void CreateBoundingVolumes(std::vector<GeometryGenerator::Vertex>& vertPosArray,std::vector<XMFLOAT3>& boundingBoxVerts, std::vector<DWORD>& boundingBoxIndex);
+	void handleCollision(XMVECTOR& firstboxmin, XMVECTOR& firstboxmax,XMFLOAT3& firsttranslation,XMVECTOR& secondboxmin, XMVECTOR& secondboxmax, float velocity);
+	XMFLOAT3 makeCeil(XMFLOAT3 first, XMFLOAT3 second);
+	XMFLOAT3 makeFloor(XMFLOAT3 first, XMFLOAT3 second);
 
     void BuildDescriptorHeaps();
     void BuildConstantBufferViews();
@@ -226,10 +230,10 @@ void App::Update(const GameTimer& gt)
 
 	if (collisionCheck(firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex, XMLoadFloat4x4(&firstbox->World),
 		secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex, XMLoadFloat4x4(&secondbox->World))) {
-		OutputDebugString(L"Collision\n");
+		//OutputDebugString(L"Collision\n");
 	}
 	else {
-		OutputDebugString(L"No collision \n");
+		//OutputDebugString(L"No collision \n");
 	}
 
     // Cycle through the circular frame resource array.
@@ -369,6 +373,7 @@ bool App::collisionCheck(XMVECTOR& firstboxmin, XMVECTOR& firstboxmax, XMMATRIX&
 			}
 		}
 	}
+
 	//If the two bounding boxes are not colliding, then return false
 	//OutputDebugString(L"No collision \n");
 	return false;
@@ -472,38 +477,115 @@ void App::CreateBoundingVolumes(std::vector<GeometryGenerator::Vertex>& vertPosA
 	for (int j = 0; j < 36; j++)
 		boundingBoxIndex.push_back(i[j]);
 }
+
+void App::handleCollision(XMVECTOR& firstboxmin, XMVECTOR& firstboxmax, XMFLOAT3& firsttranslation, XMVECTOR& secondboxmin, XMVECTOR& secondboxmax, float velocity)
+{
+	//half length of x y and z of the boxes used to calculate the center of the box
+	XMFLOAT3 firstxyz = { (XMVectorGetX(firstboxmax) - XMVectorGetX(firstboxmin)) / 2, (XMVectorGetY(firstboxmax) - XMVectorGetY(firstboxmin)) / 2,(XMVectorGetZ(firstboxmax) - XMVectorGetZ(firstboxmin)) / 2};
+	XMFLOAT3 secondxyz = { (XMVectorGetX(secondboxmax) - XMVectorGetX(secondboxmin)) / 2, (XMVectorGetY(secondboxmax) - XMVectorGetY(secondboxmin)) / 2,(XMVectorGetZ(secondboxmax) - XMVectorGetZ(secondboxmin)) / 2 };
+
+	//boxes centers calculated with half the length of a side
+	XMFLOAT3 firstboxcenter = {XMVectorGetX(firstboxmin)+firstxyz.x,XMVectorGetY(firstboxmin)+firstxyz.y,XMVectorGetZ(firstboxmin)+firstxyz.z};
+	XMFLOAT3 secondboxcenter = { XMVectorGetX(secondboxmin) + secondxyz.x, XMVectorGetY(secondboxmin) + secondxyz.y , XMVectorGetZ(secondboxmin) + secondxyz.z };
+
+	//debugging output to check if values are correct//
+	/*std::wostringstream ss;
+	ss << XMVectorGetX(firstboxmin) << " " << XMVectorGetX(secondboxmin)<< std::endl;
+	ss << "Firstbox "<<firstboxcenter.x << " " << firstboxcenter.y << " " << firstboxcenter.z << std::endl;
+	ss << "Secondbox " << secondboxcenter.x << " " << secondboxcenter.y << " " << secondboxcenter.z << std::endl;
+	ss << "normal " <<normal.x << " " << normal.y << " " << normal.z << std::endl;
+	ss << std::endl;
+	OutputDebugString(ss.str().c_str());*/
+
+	XMFLOAT3 firstMin;
+	XMFLOAT3 firstMax;
+	XMStoreFloat3(&firstMin, firstboxmin);
+	XMStoreFloat3(&firstMax, firstboxmax);
+
+	XMFLOAT3 secondMin;
+	XMFLOAT3 secondMax;
+	XMStoreFloat3(&secondMin, secondboxmin);
+	XMStoreFloat3(&secondMax, secondboxmax);
+
+	XMFLOAT3 intMin = makeCeil(firstMin,secondMin);
+	XMFLOAT3 intMax = makeFloor(firstMax,secondMax);
+
+	//area of the intersection of the two boxes
+	XMFLOAT3 intersection = {intMax.x-intMin.x,intMax.y-intMin.y,intMax.z-intMin.z};
+
+	float ax = fabs(intersection.x);
+	float ay = fabs(intersection.y);
+	float az = fabs(intersection.z);
+
+	//Calculating x y and z normals for faces
+	float sx = firstboxcenter.x < secondboxcenter.x ? -1.0f : 1.0f;
+	float sy = firstboxcenter.y < secondboxcenter.y ? -1.0f : 1.0f;
+	float sz = firstboxcenter.z < secondboxcenter.z ? -1.0f : 1.0f;
+
+	//checking which face is colliding with and multiplying collision normal of face
+	if (ax <= ay && ax <= az) {
+		pos.x += velocity * sx;
+	}
+	else if (ay <= az) {
+		pos.y += velocity * sy;
+	}
+	else {
+		pos.z += velocity * sz;
+	}
+
+}
+
+XMFLOAT3 App::makeCeil(XMFLOAT3 first, XMFLOAT3 second)
+{
+	XMFLOAT3 result;
+	if (second.x > first.x) first.x = second.x;
+	if (second.y > first.y) first.y = second.y;
+	if (second.z > first.z) first.z = second.z;
+	return first;
+}
+
+XMFLOAT3 App::makeFloor(XMFLOAT3 first, XMFLOAT3 second)
+{
+	if (second.x < first.x) first.x = second.x;
+	if (second.y < first.y) first.y = second.y;
+	if (second.z < first.z) first.z = second.z;
+	return first;
+}
  
 void App::OnKeyboardInput(const GameTimer& gt)
 {
-    
     const float dt = gt.DeltaTime();
     float boxSpeed = 3.0f * dt;
 
-
-    if (GetAsyncKeyState('W') & 0x8000)
-        pos.z += boxSpeed;
-        //keyboardInput.z += boxSpeed;
-
-    if (GetAsyncKeyState('S') & 0x8000)
-        pos.z -= boxSpeed;
-        //keyboardInput.z -= boxSpeed;
-
-    if (GetAsyncKeyState('A') & 0x8000)
-        pos.x -= boxSpeed;
-        //keyboardInput.x -= boxSpeed;
-
-    if (GetAsyncKeyState('D') & 0x8000)
-        pos.x += boxSpeed;
-        //keyboardInput.x += boxSpeed;
-    
-    if (GetAsyncKeyState('I') & 0x8000)
-        pos.y += boxSpeed;
-        //keyboardInput.y += boxSpeed;
-
-    if (GetAsyncKeyState('K') & 0x8000)
-        pos.y -= boxSpeed;
-        //keyboardInput.y -= boxSpeed;
-
+		if (GetAsyncKeyState('W') & 0x8000) {
+			firstbox->moveside = 1;
+			pos.z += boxSpeed;
+			//keyboardInput.z += boxSpeed;
+		}
+		if (GetAsyncKeyState('S') & 0x8000) {
+			firstbox->moveside = 2;
+			pos.z -= boxSpeed;
+			//keyboardInput.z -= boxSpeed;
+		}
+		if (GetAsyncKeyState('A') & 0x8000){
+			firstbox->moveside = 3;
+			pos.x -= boxSpeed;
+		//keyboardInput.x -= boxSpeed;
+		}
+		if (GetAsyncKeyState('D') & 0x8000) {
+			firstbox->moveside = 4;
+			pos.x += boxSpeed;
+			//keyboardInput.x += boxSpeed;
+		}
+		if (GetAsyncKeyState('I') & 0x8000) {
+			pos.y += boxSpeed;
+			//keyboardInput.y += boxSpeed;
+		}
+		if (GetAsyncKeyState('K') & 0x8000) {
+			pos.y -= boxSpeed;
+			//keyboardInput.y -= boxSpeed;
+		}
+	
 	//box translation//
 	XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
 	XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
@@ -513,6 +595,22 @@ void App::OnKeyboardInput(const GameTimer& gt)
 	XMStoreFloat4x4(&firstbox->World, boxWorld);
 	//calculate new bounding box of first box
 	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
+
+	if (collisionCheck(firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex, XMLoadFloat4x4(&firstbox->World),
+		secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex, XMLoadFloat4x4(&secondbox->World))) {
+
+		//after entity class is fleshed out some of these parameters can be removed and only refer to the entity
+		handleCollision(firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex, pos,
+			secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex,boxSpeed);
+
+		boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
+		boxWorld = boxRotate * boxScale * boxOffset;
+		XMStoreFloat4x4(&firstbox->World, boxWorld);
+
+		//calculate new bounding box of first box after collision
+		calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
+	}
+	
 	//formerly mboxritemmovable
     firstbox->NumFramesDirty++;
 
@@ -890,7 +988,7 @@ void App::BuildRenderItems()
 
 	calcAABB(boxBoundingVertPosArray, secondbox->World, secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex);
 
-    auto gridRitem = std::make_unique<RenderItem>();
+    /*auto gridRitem = std::make_unique<RenderItem>();
     gridRitem->World = MathHelper::Identity4x4();
 	gridRitem->ObjCBIndex = 2;
 	gridRitem->Geo = mGeometries["shapeGeo"].get();
@@ -898,7 +996,7 @@ void App::BuildRenderItems()
     gridRitem->IndexCount = gridRitem->Geo->DrawArgs["grid"].IndexCount;
     gridRitem->StartIndexLocation = gridRitem->Geo->DrawArgs["grid"].StartIndexLocation;
     gridRitem->BaseVertexLocation = gridRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
-	mAllRitems.push_back(std::move(gridRitem));
+	mAllRitems.push_back(std::move(gridRitem));*/
 
 	/*UINT objCBIndex = 2;
 	for(int i = 0; i < 5; ++i)
