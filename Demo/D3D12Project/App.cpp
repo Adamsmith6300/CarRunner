@@ -10,6 +10,7 @@
 #include "../../Common/GeometryGenerator.h"
 #include "../../Common/camera.h"
 #include "../../Common/Entity.h"
+#include "../../Physics/Physics.h"
 #include "FrameResource.h"
 
 using Microsoft::WRL::ComPtr;
@@ -19,7 +20,7 @@ using namespace DirectX::PackedVector;
 const int gNumFrameResources = 3;
 
 //For Development only
-const bool isTopDown = true;
+const bool isTopDown = false;
 XMFLOAT3 topPos = { 0.0f, 20.0f, 0.0f };
 
 // Lightweight structure stores parameters to draw a shape.  This will
@@ -556,7 +557,6 @@ void App::OnKeyboardInput(const GameTimer& gt)
 {
     const float dt = gt.DeltaTime();
     float boxSpeed = 3.0f * dt;
-
 		if (GetAsyncKeyState('W') & 0x8000) {
 			firstbox->moveside = 1;
 			pos.z += boxSpeed;
@@ -585,7 +585,9 @@ void App::OnKeyboardInput(const GameTimer& gt)
 			pos.y -= boxSpeed;
 			//keyboardInput.y -= boxSpeed;
 		}
-	
+		if (GetAsyncKeyState(' ') & 0x8000) {
+			ent.decrementJump();
+		}
 	//box translation//
 	XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
 	XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
@@ -614,20 +616,7 @@ void App::OnKeyboardInput(const GameTimer& gt)
 	//formerly mboxritemmovable
     firstbox->NumFramesDirty++;
 
-	//-----------------------------------------------------------camera stuff------------------------------------------------------------------//
-	/*if (GetAsyncKeyState(VK_UP) & 0x8000)
-		mCamera.Walk(10.0f * dt);
-
-	if (GetAsyncKeyState(VK_DOWN) & 0x8000)
-		mCamera.Walk(-10.0f * dt);
->>>>>>> f9806a278648c361456a459e4331716f99eb81d0
-
-	if (GetAsyncKeyState(VK_LEFT) & 0x8000)
-		mCamera.Strafe(-10.0f * dt);
-
-	if (GetAsyncKeyState(VK_RIGHT) & 0x8000)
-		mCamera.Strafe(10.0f * dt);*/
-
+	ent.resetJump(Physics::YPhysics(pos, ent.GetPhysHolder(), boxSpeed));
     ent.SetPosition(pos);
     if (!isTopDown) {
         mCamera.SetPosition(ent.getHPos());

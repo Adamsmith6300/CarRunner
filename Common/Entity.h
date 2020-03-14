@@ -4,6 +4,23 @@
 #define POS DirectX::XMFLOAT3
 #define DIRV DirectX::XMVECTOR
 
+const float MAXJUMPS = 1.0f;
+
+//Done quick and dirty, will be in other
+class PhysHolder {
+private:
+	POS mVelocity, mIntent;
+public:
+	PhysHolder();
+
+	POS getVelocity()const;
+	void setVelocity(POS velocity);
+	POS getIntent()const;
+	void setIntent(POS intent);
+
+	void Jump();
+};
+
 class Entity
 {
 private:
@@ -13,6 +30,9 @@ private:
 	POS mRight;
 	POS mUp;
 	POS mLook;
+
+	PhysHolder* pPhysHolder = nullptr;
+	float jumps = MAXJUMPS;
 
 public:
 
@@ -36,5 +56,8 @@ public:
 
 	void walk(float d);
 	void Strafe(float d);
-};
 
+	PhysHolder* GetPhysHolder()const;
+	void decrementJump();
+	void resetJump(bool j);
+};
