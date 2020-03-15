@@ -4,6 +4,7 @@
 // Hold down '1' key to view scene in wireframe mode.
 //***************************************************************************************
 
+#include <future>
 #include "../../Common/d3dApp.h"
 #include "../../Common/MathHelper.h"
 #include "../../Common/UploadBuffer.h"
@@ -11,7 +12,10 @@
 #include "../../Common/camera.h"
 #include "../../Common/Entity.h"
 #include "../../Physics/Physics.h"
+#include "Server.h"
+#include "Client.h"
 #include "FrameResource.h"
+#include "RenderItem.h"
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -23,41 +27,6 @@ const int gNumFrameResources = 3;
 const bool isTopDown = false;
 XMFLOAT3 topPos = { 0.0f, 20.0f, 0.0f };
 
-// Lightweight structure stores parameters to draw a shape.  This will
-// vary from app-to-app.
-struct RenderItem
-{
-	RenderItem() = default;
-
-    // World matrix of the shape that describes the object's local space
-    // relative to the world space, which defines the position, orientation,
-    // and scale of the object in the world.
-    XMFLOAT4X4 World = MathHelper::Identity4x4();
-
-	// Dirty flag indicating the object data has changed and we need to update the constant buffer.
-	// Because we have an object cbuffer for each FrameResource, we have to apply the
-	// update to each FrameResource.  Thus, when we modify obect data we should set 
-	// NumFramesDirty = gNumFrameResources so that each frame resource gets the update.
-	int NumFramesDirty = gNumFrameResources;
-	// 1 for forward, 2 for backwards, 3 for left, 4 for right, 5 for up, 6 for down
-	int moveside;
-
-	// adding 
-	XMVECTOR boundingboxminvertex;
-	XMVECTOR boundingboxmaxvertex;
-	// Index into GPU constant buffer corresponding to the ObjectCB for this render item.
-	UINT ObjCBIndex = -1;
-
-	MeshGeometry* Geo = nullptr;
-
-    // Primitive topology.
-    D3D12_PRIMITIVE_TOPOLOGY PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-
-    // DrawIndexedInstanced parameters.
-    UINT IndexCount = 0;
-    UINT StartIndexLocation = 0;
-    int BaseVertexLocation = 0;
-};
 
 class App : public D3DApp
 {
@@ -68,6 +37,7 @@ public:
     ~App();
 
     virtual bool Initialize()override;
+	virtual int Run()override;
 
 private:
     virtual void OnResize()override;
@@ -98,7 +68,7 @@ private:
     void BuildFrameResources();
     void BuildRenderItems();
     void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
- 
+	void SetupClientServer();
 private:
 
     std::vector<std::unique_ptr<FrameResource>> mFrameResources;
@@ -119,12 +89,16 @@ private:
 	// List of all the render items.
 	std::vector<std::unique_ptr<RenderItem>> mAllRitems;
     RenderItem* mBoxItemMovable;
-    XMFLOAT3 pos = { 0.0f, 0.0f, 0.0f };
+    /*XMFLOAT3 pos = { 0.0f, 0.0f, 0.0f };
     XMFLOAT3 right = {pos.x+1, pos.y, pos.z};
     XMFLOAT3 up = { pos.x, pos.y+1, pos.z };
     XMFLOAT3 look = { pos.x, pos.y, pos.z+1 };
-    Entity ent{ pos, right, up, look };
-    //XMFLOAT3 keyboardInput = { 0.0f, 0.0f, 0.0f };
+    Entity ent{ pos, right, up, look };*/
+	XMFLOAT3 pos;
+	XMFLOAT3 right;
+	XMFLOAT3 up;
+	XMFLOAT3 look;
+	Entity ent;
 
 	//global variables for the bounding box
 	RenderItem* firstbox = nullptr;
@@ -145,6 +119,12 @@ private:
 	Camera mCamera;
 
     POINT mLastMousePos;
+	Server* gameServer = nullptr;
+	Client* gameClient = nullptr;
+	thread clientThread;
+	thread serverThread;
+	promise<void> exitSignal;
+	promise<void> exitSignal2;
 };
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
@@ -180,7 +160,53 @@ App::~App()
     if(md3dDevice != nullptr)
         FlushCommandQueue();
 }
+int App::Run()
+{
+	MSG msg = { 0 };
 
+	mTimer.Reset();
+
+	future<void> futureObj = exitSignal.get_future();
+	future<void> futureObj2 = exitSignal2.get_future();
+	clientThread = thread(&Client::start, gameClient, move(futureObj));
+	if (gameServer != nullptr) {
+		serverThread = thread(&Server::start, gameServer, move(futureObj2));
+	}
+
+	while (msg.message != WM_QUIT)
+	{
+		// If there are Window messages then process them.
+		if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+		// Otherwise, do animation/game stuff.
+		else
+		{
+			mTimer.Tick();
+
+			if (!mAppPaused)
+			{
+				CalculateFrameStats();
+				Update(mTimer);
+				Draw(mTimer);
+			}
+			else
+			{
+				Sleep(100);
+			}
+		}
+	}
+	exitSignal.set_value();
+	exitSignal2.set_value();
+	if (gameServer != nullptr) {
+		serverThread.join();
+	}
+	clientThread.join();
+	
+	return (int)msg.wParam;
+}
 bool App::Initialize()
 {
     if (isTopDown) {
@@ -192,7 +218,8 @@ bool App::Initialize()
 
     // Reset the command list to prep for initialization commands.
     ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
-
+	
+	SetupClientServer();
     BuildRootSignature();
     BuildShadersAndInputLayout();
     BuildShapeGeometry();
@@ -201,6 +228,10 @@ bool App::Initialize()
 	CreateBoundingVolumes(box.Vertices, boxBoundingVertPosArray, boxBoundingVertIndexArray);
 
 	BuildRenderItems();
+	right = { pos.x + 1, pos.y, pos.z };
+	up = { pos.x, pos.y + 1, pos.z };
+	look = { pos.x, pos.y, pos.z + 1 };
+	ent = Entity{ pos, right, up, look };
     BuildFrameResources();
     BuildDescriptorHeaps();
     BuildConstantBufferViews();
@@ -592,6 +623,7 @@ void App::OnKeyboardInput(const GameTimer& gt)
 	XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
 	XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
 	XMMATRIX boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
+	gameClient->sendToServer(pos.x, pos.y, pos.z);
 	XMMATRIX boxWorld = boxRotate * boxScale * boxOffset;
 	firstbox->Geo;
 	XMStoreFloat4x4(&firstbox->World, boxWorld);
@@ -671,6 +703,20 @@ void App::UpdateMainPassCB(const GameTimer& gt)
 
 	auto currPassCB = mCurrFrameResource->PassCB.get();
 	currPassCB->CopyData(0, mMainPassCB);
+}
+
+void App::SetupClientServer() {
+	/*while (true) {
+		if (GetAsyncKeyState('1') & 0x8000) {*/
+			gameServer = new Server();
+			gameClient = new Client();
+			/*break;
+		}
+		if (GetAsyncKeyState('2') & 0x8000) {
+			gameClient = new Client();
+			break;
+		}
+	}*/
 }
 
 void App::BuildDescriptorHeaps()
@@ -950,8 +996,22 @@ void App::BuildFrameResources()
 
 void App::BuildRenderItems()
 {
+	XMMATRIX box1Translation;
+	XMMATRIX box2Translation;
+	if (gameServer != nullptr) {
+		//can probably remove the translations because we're using pos global
+		box1Translation = XMMatrixTranslation(0.0f, 0.5f, 0.0f);
+		box2Translation = XMMatrixTranslation(5.0f, 0.5f, 0.0f);
+		pos = { 0.0f, 0.5f, 0.0f };
+	}
+	else {
+		//can probably remove the translations because we're using pos global
+		box1Translation = XMMatrixTranslation(5.0f, 0.5f, 0.0f);
+		box2Translation = XMMatrixTranslation(0.0f, 0.5f, 0.0f);
+		pos = { 5.0f, 0.5f, 0.0f };
+	}
 	auto boxRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f)*XMMatrixTranslation(0.0f, 0.5f, 0.0f));
+	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box1Translation);
 	boxRitem->ObjCBIndex = 0;
 	boxRitem->Geo = mGeometries["shapeGeo"].get();
 	boxRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -965,7 +1025,7 @@ void App::BuildRenderItems()
 
 
     auto boxRitem2 = std::make_unique<RenderItem>();
-    XMStoreFloat4x4(&boxRitem2->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(5.0f, 0.5f, 0.0f));
+    XMStoreFloat4x4(&boxRitem2->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box2Translation);
     boxRitem2->ObjCBIndex = 1;
     boxRitem2->Geo = mGeometries["shapeGeo"].get();
     boxRitem2->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
