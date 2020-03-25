@@ -1,7 +1,7 @@
 #include "Entity.h"
 
 Entity::Entity()
-:	pPhysHolder(new PhysHolder())
+:	pPhysHolder(new PhysicsEntity())
 {
 	mPosition = { 0.0f, 0.0f, 0.0f };
 	mRight = { 1.0f, 0.0f, 0.0f };
@@ -12,7 +12,7 @@ Entity::Entity()
 }
 
 Entity::Entity(POS position, POS right, POS up, POS look)
-:	pPhysHolder(new PhysHolder()),
+:	pPhysHolder(new PhysicsEntity()),
 	mPosition(position),
 	mRight(right),
 	mUp(up),
@@ -92,51 +92,7 @@ POS Entity::GetLook3f()const
 }
 
 //PhysHolder
-PhysHolder* Entity::GetPhysHolder() const
+PhysicsEntity* Entity::GetPhysHolder() const
 {
 	return pPhysHolder;
-}
-
-void Entity::decrementJump()
-{
-	if(--jumps < 0.0f)
-		return;
-	pPhysHolder->Jump();
-}
-
-void Entity::resetJump(bool j)
-{
-	if (j)
-		jumps = MAXJUMPS;
-}
-
-PhysHolder::PhysHolder()
-{
-	mVelocity = { 0.0f, 0.0f, 0.0f };
-	mIntent = { 0.0f, 0.0f, 0.0f };
-}
-
-POS PhysHolder::getVelocity() const
-{
-	return mVelocity;
-}
-
-void PhysHolder::setVelocity(POS velocity)
-{
-	mVelocity = velocity;
-}
-
-POS PhysHolder::getIntent() const
-{
-	return mIntent;
-}
-
-void PhysHolder::setIntent(POS intent)
-{
-	mIntent = intent;
-}
-
-void PhysHolder::Jump()
-{
-	mIntent.y = 1.0f;
 }
