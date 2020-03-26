@@ -1,8 +1,7 @@
 #pragma once
-#include "d3dUtil.h"
+#include "../Physics/PhysicsEntity.h"
 
-#define POS DirectX::XMFLOAT3
-#define DIRV DirectX::XMVECTOR
+const float MAXJUMPS = 1.0f;
 
 class Entity
 {
@@ -13,6 +12,9 @@ private:
 	POS mRight;
 	POS mUp;
 	POS mLook;
+
+	PhysicsEntity* pPhysHolder = nullptr;
+	float jumps = MAXJUMPS;
 
 public:
 
@@ -36,5 +38,6 @@ public:
 
 	void walk(float d);
 	void Strafe(float d);
-};
 
+	PhysicsEntity* GetPhysHolder()const;
+};

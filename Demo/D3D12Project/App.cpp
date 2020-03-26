@@ -4,13 +4,18 @@
 // Hold down '1' key to view scene in wireframe mode.
 //***************************************************************************************
 
+#include <future>
 #include "../../Common/d3dApp.h"
 #include "../../Common/MathHelper.h"
 #include "../../Common/UploadBuffer.h"
 #include "../../Common/GeometryGenerator.h"
 #include "../../Common/camera.h"
 #include "../../Common/Entity.h"
+#include "../../Physics/Physics.h"
+#include "Server.h"
+#include "Client.h"
 #include "FrameResource.h"
+#include "RenderItem.h"
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -22,40 +27,6 @@ const int gNumFrameResources = 3;
 const bool isTopDown = true;
 XMFLOAT3 topPos = { 0.0f, 20.0f, 0.0f };
 
-// Lightweight structure stores parameters to draw a shape.  This will
-// vary from app-to-app.
-struct RenderItem
-{
-	RenderItem() = default;
-
-    // World matrix of the shape that describes the object's local space
-    // relative to the world space, which defines the position, orientation,
-    // and scale of the object in the world.
-    XMFLOAT4X4 World = MathHelper::Identity4x4();
-
-	// Dirty flag indicating the object data has changed and we need to update the constant buffer.
-	// Because we have an object cbuffer for each FrameResource, we have to apply the
-	// update to each FrameResource.  Thus, when we modify obect data we should set 
-	// NumFramesDirty = gNumFrameResources so that each frame resource gets the update.
-	int NumFramesDirty = gNumFrameResources;
-
-	// adding 
-	XMVECTOR boundingboxminvertex;
-	XMVECTOR boundingboxmaxvertex;
-
-	// Index into GPU constant buffer corresponding to the ObjectCB for this render item.
-	UINT ObjCBIndex = -1;
-
-	MeshGeometry* Geo = nullptr;
-
-    // Primitive topology.
-    D3D12_PRIMITIVE_TOPOLOGY PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-
-    // DrawIndexedInstanced parameters.
-    UINT IndexCount = 0;
-    UINT StartIndexLocation = 0;
-    int BaseVertexLocation = 0;
-};
 
 class App : public D3DApp
 {
@@ -66,6 +37,7 @@ public:
     ~App();
 
     virtual bool Initialize()override;
+	virtual int Run()override;
 
 private:
     virtual void OnResize()override;
@@ -83,6 +55,9 @@ private:
 	bool collisionCheck(XMVECTOR& firstboxmin, XMVECTOR& firstboxmax, XMMATRIX& firstboxworld, XMVECTOR& secondboxmin, XMVECTOR& secondboxmax, XMMATRIX& secondboxworld);
 	void calcAABB(std::vector<XMFLOAT3> boxVerts, XMFLOAT4X4& worldspace, XMVECTOR& boxmin, XMVECTOR& boxmax);
 	void CreateBoundingVolumes(std::vector<GeometryGenerator::Vertex>& vertPosArray,std::vector<XMFLOAT3>& boundingBoxVerts, std::vector<DWORD>& boundingBoxIndex);
+	void handleCollision(XMVECTOR& firstboxmin, XMVECTOR& firstboxmax,XMFLOAT3& firsttranslation,XMVECTOR& secondboxmin, XMVECTOR& secondboxmax, float velocity);
+	XMFLOAT3 makeCeil(XMFLOAT3 first, XMFLOAT3 second);
+	XMFLOAT3 makeFloor(XMFLOAT3 first, XMFLOAT3 second);
 
     void BuildDescriptorHeaps();
     void BuildConstantBufferViews();
@@ -93,7 +68,7 @@ private:
     void BuildFrameResources();
     void BuildRenderItems();
     void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
- 
+	void SetupClientServer();
 private:
 
     std::vector<std::unique_ptr<FrameResource>> mFrameResources;
@@ -114,12 +89,16 @@ private:
 	// List of all the render items.
 	std::vector<std::unique_ptr<RenderItem>> mAllRitems;
     RenderItem* mBoxItemMovable;
-    XMFLOAT3 pos = { 0.0f, 0.0f, 0.0f };
+    /*XMFLOAT3 pos = { 0.0f, 0.0f, 0.0f };
     XMFLOAT3 right = {pos.x+1, pos.y, pos.z};
     XMFLOAT3 up = { pos.x, pos.y+1, pos.z };
     XMFLOAT3 look = { pos.x, pos.y, pos.z+1 };
-    Entity ent{ pos, right, up, look };
-    //XMFLOAT3 keyboardInput = { 0.0f, 0.0f, 0.0f };
+    Entity ent{ pos, right, up, look };*/
+	XMFLOAT3 pos;
+	XMFLOAT3 right;
+	XMFLOAT3 up;
+	XMFLOAT3 look;
+	Entity ent;
 
 	//global variables for the bounding box
 	RenderItem* firstbox = nullptr;
@@ -140,6 +119,12 @@ private:
 	Camera mCamera;
 
     POINT mLastMousePos;
+	Server* gameServer = nullptr;
+	Client* gameClient = nullptr;
+	thread clientThread;
+	thread serverThread;
+	promise<void> exitSignal;
+	promise<void> exitSignal2;
 };
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
@@ -175,7 +160,53 @@ App::~App()
     if(md3dDevice != nullptr)
         FlushCommandQueue();
 }
+int App::Run()
+{
+	MSG msg = { 0 };
 
+	mTimer.Reset();
+
+	future<void> futureObj = exitSignal.get_future();
+	future<void> futureObj2 = exitSignal2.get_future();
+	clientThread = thread(&Client::start, gameClient, move(futureObj));
+	if (gameServer != nullptr) {
+		serverThread = thread(&Server::start, gameServer, move(futureObj2));
+	}
+
+	while (msg.message != WM_QUIT)
+	{
+		// If there are Window messages then process them.
+		if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+		// Otherwise, do animation/game stuff.
+		else
+		{
+			mTimer.Tick();
+
+			if (!mAppPaused)
+			{
+				CalculateFrameStats();
+				Update(mTimer);
+				Draw(mTimer);
+			}
+			else
+			{
+				Sleep(100);
+			}
+		}
+	}
+	exitSignal.set_value();
+	exitSignal2.set_value();
+	if (gameServer != nullptr) {
+		serverThread.join();
+	}
+	clientThread.join();
+	
+	return (int)msg.wParam;
+}
 bool App::Initialize()
 {
     if (isTopDown) {
@@ -187,7 +218,8 @@ bool App::Initialize()
 
     // Reset the command list to prep for initialization commands.
     ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
-
+	
+	SetupClientServer();
     BuildRootSignature();
     BuildShadersAndInputLayout();
     BuildShapeGeometry();
@@ -196,6 +228,10 @@ bool App::Initialize()
 	CreateBoundingVolumes(box.Vertices, boxBoundingVertPosArray, boxBoundingVertIndexArray);
 
 	BuildRenderItems();
+	right = { pos.x + 1, pos.y, pos.z };
+	up = { pos.x, pos.y + 1, pos.z };
+	look = { pos.x, pos.y, pos.z + 1 };
+	ent = Entity{ pos, right, up, look };
     BuildFrameResources();
     BuildDescriptorHeaps();
     BuildConstantBufferViews();
@@ -226,10 +262,10 @@ void App::Update(const GameTimer& gt)
 
 	if (collisionCheck(firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex, XMLoadFloat4x4(&firstbox->World),
 		secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex, XMLoadFloat4x4(&secondbox->World))) {
-		OutputDebugString(L"Collision\n");
+		//OutputDebugString(L"Collision\n");
 	}
 	else {
-		OutputDebugString(L"No collision \n");
+		//OutputDebugString(L"No collision \n");
 	}
 
     // Cycle through the circular frame resource array.
@@ -369,6 +405,7 @@ bool App::collisionCheck(XMVECTOR& firstboxmin, XMVECTOR& firstboxmax, XMMATRIX&
 			}
 		}
 	}
+
 	//If the two bounding boxes are not colliding, then return false
 	//OutputDebugString(L"No collision \n");
 	return false;
@@ -472,64 +509,149 @@ void App::CreateBoundingVolumes(std::vector<GeometryGenerator::Vertex>& vertPosA
 	for (int j = 0; j < 36; j++)
 		boundingBoxIndex.push_back(i[j]);
 }
+
+void App::handleCollision(XMVECTOR& firstboxmin, XMVECTOR& firstboxmax, XMFLOAT3& firsttranslation, XMVECTOR& secondboxmin, XMVECTOR& secondboxmax, float velocity)
+{
+	//half length of x y and z of the boxes used to calculate the center of the box
+	XMFLOAT3 firstxyz = { (XMVectorGetX(firstboxmax) - XMVectorGetX(firstboxmin)) / 2, (XMVectorGetY(firstboxmax) - XMVectorGetY(firstboxmin)) / 2,(XMVectorGetZ(firstboxmax) - XMVectorGetZ(firstboxmin)) / 2};
+	XMFLOAT3 secondxyz = { (XMVectorGetX(secondboxmax) - XMVectorGetX(secondboxmin)) / 2, (XMVectorGetY(secondboxmax) - XMVectorGetY(secondboxmin)) / 2,(XMVectorGetZ(secondboxmax) - XMVectorGetZ(secondboxmin)) / 2 };
+
+	//boxes centers calculated with half the length of a side
+	XMFLOAT3 firstboxcenter = {XMVectorGetX(firstboxmin)+firstxyz.x,XMVectorGetY(firstboxmin)+firstxyz.y,XMVectorGetZ(firstboxmin)+firstxyz.z};
+	XMFLOAT3 secondboxcenter = { XMVectorGetX(secondboxmin) + secondxyz.x, XMVectorGetY(secondboxmin) + secondxyz.y , XMVectorGetZ(secondboxmin) + secondxyz.z };
+
+	//debugging output to check if values are correct//
+	/*std::wostringstream ss;
+	ss << XMVectorGetX(firstboxmin) << " " << XMVectorGetX(secondboxmin)<< std::endl;
+	ss << "Firstbox "<<firstboxcenter.x << " " << firstboxcenter.y << " " << firstboxcenter.z << std::endl;
+	ss << "Secondbox " << secondboxcenter.x << " " << secondboxcenter.y << " " << secondboxcenter.z << std::endl;
+	ss << "normal " <<normal.x << " " << normal.y << " " << normal.z << std::endl;
+	ss << std::endl;
+	OutputDebugString(ss.str().c_str());*/
+
+	XMFLOAT3 firstMin;
+	XMFLOAT3 firstMax;
+	XMStoreFloat3(&firstMin, firstboxmin);
+	XMStoreFloat3(&firstMax, firstboxmax);
+
+	XMFLOAT3 secondMin;
+	XMFLOAT3 secondMax;
+	XMStoreFloat3(&secondMin, secondboxmin);
+	XMStoreFloat3(&secondMax, secondboxmax);
+
+	XMFLOAT3 intMin = makeCeil(firstMin,secondMin);
+	XMFLOAT3 intMax = makeFloor(firstMax,secondMax);
+
+	//area of the intersection of the two boxes
+	XMFLOAT3 intersection = {intMax.x-intMin.x,intMax.y-intMin.y,intMax.z-intMin.z};
+
+	float ax = fabs(intersection.x);
+	float ay = fabs(intersection.y);
+	float az = fabs(intersection.z);
+
+	//Calculating x y and z normals for faces
+	float sx = firstboxcenter.x < secondboxcenter.x ? -1.0f : 1.0f;
+	float sy = firstboxcenter.y < secondboxcenter.y ? -1.0f : 1.0f;
+	float sz = firstboxcenter.z < secondboxcenter.z ? -1.0f : 1.0f;
+
+	//checking which face is colliding with and multiplying collision normal of face
+	if (ax <= ay && ax <= az) {
+		pos.x += velocity * sx;
+	}
+	else if (ay <= az) {
+		pos.y += velocity * sy;
+	}
+	else {
+		pos.z += velocity * sz;
+	}
+
+}
+
+XMFLOAT3 App::makeCeil(XMFLOAT3 first, XMFLOAT3 second)
+{
+	XMFLOAT3 result;
+	if (second.x > first.x) first.x = second.x;
+	if (second.y > first.y) first.y = second.y;
+	if (second.z > first.z) first.z = second.z;
+	return first;
+}
+
+XMFLOAT3 App::makeFloor(XMFLOAT3 first, XMFLOAT3 second)
+{
+	if (second.x < first.x) first.x = second.x;
+	if (second.y < first.y) first.y = second.y;
+	if (second.z < first.z) first.z = second.z;
+	return first;
+}
  
 void App::OnKeyboardInput(const GameTimer& gt)
 {
-    
     const float dt = gt.DeltaTime();
+	PhysicsEntity* entPhys = ent.GetPhysHolder();
+
     float boxSpeed = 3.0f * dt;
 
-
-    if (GetAsyncKeyState('W') & 0x8000)
-        pos.z += boxSpeed;
-        //keyboardInput.z += boxSpeed;
-
-    if (GetAsyncKeyState('S') & 0x8000)
-        pos.z -= boxSpeed;
-        //keyboardInput.z -= boxSpeed;
-
-    if (GetAsyncKeyState('A') & 0x8000)
-        pos.x -= boxSpeed;
-        //keyboardInput.x -= boxSpeed;
-
-    if (GetAsyncKeyState('D') & 0x8000)
-        pos.x += boxSpeed;
-        //keyboardInput.x += boxSpeed;
-    
-    if (GetAsyncKeyState('I') & 0x8000)
-        pos.y += boxSpeed;
-        //keyboardInput.y += boxSpeed;
-
-    if (GetAsyncKeyState('K') & 0x8000)
-        pos.y -= boxSpeed;
-        //keyboardInput.y -= boxSpeed;
+	if (GetAsyncKeyState('Q') & 0x8000) {
+		entPhys->setAngleNegative();
+	}
+	if (GetAsyncKeyState('E') & 0x8000) {
+		entPhys->setAnglePositive();
+		//keyboardInput.y -= boxSpeed;
+	}
+	if (GetAsyncKeyState('W') & 0x8000) {
+		firstbox->moveside = 1;
+		entPhys->setZIntentPositive();
+		//keyboardInput.z += boxSpeed;
+	}
+	if (GetAsyncKeyState('S') & 0x8000) {
+		firstbox->moveside = 2;
+		entPhys->setZIntentNegative();
+		//keyboardInput.z -= boxSpeed;
+	}
+	if (GetAsyncKeyState('A') & 0x8000){
+		firstbox->moveside = 3;
+		entPhys->setXIntentNegative();
+	//keyboardInput.x -= boxSpeed;
+	}
+	if (GetAsyncKeyState('D') & 0x8000) {
+		firstbox->moveside = 4;
+		entPhys->setXIntentPositive();
+		//keyboardInput.x += boxSpeed;
+	}
+	if (GetAsyncKeyState(' ') & 0x8000) {
+		entPhys->decrementJump();
+	}
 
 	//box translation//
 	XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
 	XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
 	XMMATRIX boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
+	gameClient->sendToServer(pos.x, pos.y, pos.z);
 	XMMATRIX boxWorld = boxRotate * boxScale * boxOffset;
 	firstbox->Geo;
 	XMStoreFloat4x4(&firstbox->World, boxWorld);
 	//calculate new bounding box of first box
 	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
+
+	if (collisionCheck(firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex, XMLoadFloat4x4(&firstbox->World),
+		secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex, XMLoadFloat4x4(&secondbox->World))) {
+
+		//after entity class is fleshed out some of these parameters can be removed and only refer to the entity
+		handleCollision(firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex, pos,
+			secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex,boxSpeed);
+
+		boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
+		boxWorld = boxRotate * boxScale * boxOffset;
+		XMStoreFloat4x4(&firstbox->World, boxWorld);
+
+		//calculate new bounding box of first box after collision
+		calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
+	}
+	
 	//formerly mboxritemmovable
     firstbox->NumFramesDirty++;
 
-	//-----------------------------------------------------------camera stuff------------------------------------------------------------------//
-	/*if (GetAsyncKeyState(VK_UP) & 0x8000)
-		mCamera.Walk(10.0f * dt);
-
-	if (GetAsyncKeyState(VK_DOWN) & 0x8000)
-		mCamera.Walk(-10.0f * dt);
->>>>>>> f9806a278648c361456a459e4331716f99eb81d0
-
-	if (GetAsyncKeyState(VK_LEFT) & 0x8000)
-		mCamera.Strafe(-10.0f * dt);
-
-	if (GetAsyncKeyState(VK_RIGHT) & 0x8000)
-		mCamera.Strafe(10.0f * dt);*/
-
+	Physics::XYZPhysics(pos, entPhys, boxSpeed);
     ent.SetPosition(pos);
     if (!isTopDown) {
         mCamera.SetPosition(ent.getHPos());
@@ -584,6 +706,20 @@ void App::UpdateMainPassCB(const GameTimer& gt)
 
 	auto currPassCB = mCurrFrameResource->PassCB.get();
 	currPassCB->CopyData(0, mMainPassCB);
+}
+
+void App::SetupClientServer() {
+	/*while (true) {
+		if (GetAsyncKeyState('1') & 0x8000) {*/
+			gameServer = new Server();
+			gameClient = new Client();
+			/*break;
+		}
+		if (GetAsyncKeyState('2') & 0x8000) {
+			gameClient = new Client();
+			break;
+		}
+	}*/
 }
 
 void App::BuildDescriptorHeaps()
@@ -863,8 +999,22 @@ void App::BuildFrameResources()
 
 void App::BuildRenderItems()
 {
+	XMMATRIX box1Translation;
+	XMMATRIX box2Translation;
+	if (gameServer != nullptr) {
+		//can probably remove the translations because we're using pos global
+		box1Translation = XMMatrixTranslation(0.0f, 0.5f, 0.0f);
+		box2Translation = XMMatrixTranslation(5.0f, 0.5f, 0.0f);
+		pos = { 0.0f, 0.5f, 0.0f };
+	}
+	else {
+		//can probably remove the translations because we're using pos global
+		box1Translation = XMMatrixTranslation(5.0f, 0.5f, 0.0f);
+		box2Translation = XMMatrixTranslation(0.0f, 0.5f, 0.0f);
+		pos = { 5.0f, 0.5f, 0.0f };
+	}
 	auto boxRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f)*XMMatrixTranslation(0.0f, 0.5f, 0.0f));
+	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box1Translation);
 	boxRitem->ObjCBIndex = 0;
 	boxRitem->Geo = mGeometries["shapeGeo"].get();
 	boxRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -878,7 +1028,7 @@ void App::BuildRenderItems()
 
 
     auto boxRitem2 = std::make_unique<RenderItem>();
-    XMStoreFloat4x4(&boxRitem2->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(5.0f, 0.5f, 0.0f));
+    XMStoreFloat4x4(&boxRitem2->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box2Translation);
     boxRitem2->ObjCBIndex = 1;
     boxRitem2->Geo = mGeometries["shapeGeo"].get();
     boxRitem2->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -890,7 +1040,7 @@ void App::BuildRenderItems()
 
 	calcAABB(boxBoundingVertPosArray, secondbox->World, secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex);
 
-    auto gridRitem = std::make_unique<RenderItem>();
+    /*auto gridRitem = std::make_unique<RenderItem>();
     gridRitem->World = MathHelper::Identity4x4();
 	gridRitem->ObjCBIndex = 2;
 	gridRitem->Geo = mGeometries["shapeGeo"].get();
@@ -898,7 +1048,7 @@ void App::BuildRenderItems()
     gridRitem->IndexCount = gridRitem->Geo->DrawArgs["grid"].IndexCount;
     gridRitem->StartIndexLocation = gridRitem->Geo->DrawArgs["grid"].StartIndexLocation;
     gridRitem->BaseVertexLocation = gridRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
-	mAllRitems.push_back(std::move(gridRitem));
+	mAllRitems.push_back(std::move(gridRitem));*/
 
 	/*UINT objCBIndex = 2;
 	for(int i = 0; i < 5; ++i)

@@ -1,18 +1,23 @@
 #include "Entity.h"
 
-Entity::Entity() {
+Entity::Entity()
+:	pPhysHolder(new PhysicsEntity())
+{
 	mPosition = { 0.0f, 0.0f, 0.0f };
 	mRight = { 1.0f, 0.0f, 0.0f };
 	mUp = { 0.0f, 1.0f, 0.0f };
 	mLook = { 0.0f, 0.0f, 1.0f };
+
 	updateHPos();
 }
 
-Entity::Entity(POS position, POS right, POS up, POS look) {
-	mPosition = position;
-	mRight = right;
-	mUp = up;
-	mLook = look;
+Entity::Entity(POS position, POS right, POS up, POS look)
+:	pPhysHolder(new PhysicsEntity()),
+	mPosition(position),
+	mRight(right),
+	mUp(up),
+	mLook(look)
+{
 	updateHPos();
 }
 
@@ -84,4 +89,10 @@ DIRV Entity::GetLook()const
 POS Entity::GetLook3f()const
 {
 	return mLook;
+}
+
+//PhysHolder
+PhysicsEntity* Entity::GetPhysHolder() const
+{
+	return pPhysHolder;
 }
