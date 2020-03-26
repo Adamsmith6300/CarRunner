@@ -1060,6 +1060,7 @@ void App::BuildRenderItems()
 {
 	XMMATRIX box1Translation;
 	XMMATRIX box2Translation;
+	UINT objCBIndex = 0;
 	if (gameServer != nullptr) {
 		//can probably remove the translations because we're using pos global
 		box1Translation = XMMatrixTranslation(0.0f, 0.5f, 0.0f);
@@ -1074,7 +1075,7 @@ void App::BuildRenderItems()
 	}
 	auto boxRitem = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box1Translation);
-	boxRitem->ObjCBIndex = 0;
+	boxRitem->ObjCBIndex = objCBIndex++;
 	boxRitem->Geo = mGeometries["shapeGeo"].get();
 	boxRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	boxRitem->IndexCount = boxRitem->Geo->DrawArgs["box"].IndexCount;
@@ -1088,7 +1089,7 @@ void App::BuildRenderItems()
 
     auto boxRitem2 = std::make_unique<RenderItem>();
     XMStoreFloat4x4(&boxRitem2->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box2Translation);
-    boxRitem2->ObjCBIndex = 1;
+    boxRitem2->ObjCBIndex = objCBIndex++;
     boxRitem2->Geo = mGeometries["shapeGeo"].get();
     boxRitem2->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
     boxRitem2->IndexCount = boxRitem2->Geo->DrawArgs["box2"].IndexCount;
@@ -1099,17 +1100,16 @@ void App::BuildRenderItems()
 
 	calcAABB(boxBoundingVertPosArray, secondbox->World, secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex);
 
-    /*auto gridRitem = std::make_unique<RenderItem>();
-    gridRitem->World = MathHelper::Identity4x4();
-	gridRitem->ObjCBIndex = 2;
+    auto gridRitem = std::make_unique<RenderItem>();
+    XMStoreFloat4x4(&gridRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
+	gridRitem->ObjCBIndex = objCBIndex++;
 	gridRitem->Geo = mGeometries["shapeGeo"].get();
 	gridRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
     gridRitem->IndexCount = gridRitem->Geo->DrawArgs["grid"].IndexCount;
     gridRitem->StartIndexLocation = gridRitem->Geo->DrawArgs["grid"].StartIndexLocation;
     gridRitem->BaseVertexLocation = gridRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
-	mAllRitems.push_back(std::move(gridRitem));*/
+	mAllRitems.push_back(std::move(gridRitem));
 
-	UINT objCBIndex = 2;
 	for (int i = 0; i < 10; ++i) {
 		auto platformRitem = std::make_unique<RenderItem>();
 		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(-5.0f, 0.0f, i*5.0f));
