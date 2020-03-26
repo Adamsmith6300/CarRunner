@@ -1,5 +1,6 @@
 /Demo/D3D12Project/x64/*
 /Demo/D3D12Project/Debug/*
+/Demo/D3D12Project/Release/*
 
 *.vs
 *.user
