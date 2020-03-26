@@ -16,6 +16,9 @@
 #include "Client.h"
 #include "FrameResource.h"
 #include "RenderItem.h"
+#include <map>
+
+#define ENTMAP map<string, Entity*>
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -97,7 +100,7 @@ private:
     XMFLOAT3 right = {pos.x+1, pos.y, pos.z};
     XMFLOAT3 up = { pos.x, pos.y+1, pos.z };
     XMFLOAT3 look = { pos.x, pos.y, pos.z+1 };
-	vector<Entity*> ents = {};
+	ENTMAP ents = {};
 
 	//global variables for the bounding box
 	RenderItem* firstbox = nullptr;
@@ -218,7 +221,7 @@ bool App::Initialize()
     // Reset the command list to prep for initialization commands.
     ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
 	
-	ents.push_back(BuildEnt(pos, right, up, look));
+	ents.insert(make_pair("player", BuildEnt(pos, right, up, look)));
 	SetupClientServer();
     BuildRootSignature();
     BuildShadersAndInputLayout();
@@ -589,7 +592,7 @@ Entity* App::BuildEnt(XMFLOAT3 pos, XMFLOAT3 right, XMFLOAT3 up, XMFLOAT3 look) 
 void App::OnKeyboardInput(const GameTimer& gt)
 {
     const float dt = gt.DeltaTime();
-	PhysicsEntity* entPhys = ents.front()->GetPhysHolder();
+	PhysicsEntity* entPhys = ents.find("player")->second->GetPhysHolder();
 
     float boxSpeed = 3.0f * dt;
 
@@ -654,9 +657,9 @@ void App::OnKeyboardInput(const GameTimer& gt)
     firstbox->NumFramesDirty++;
 
 	Physics::XYZPhysics(pos, entPhys, boxSpeed);
-    ents.front()->SetPosition(pos);
+	ents.find("player")->second->SetPosition(pos);
     if (!isTopDown) {
-        mCamera.SetPosition(ents.front()->getHPos());
+        mCamera.SetPosition(ents.find("player")->second->getHPos());
     }
     mCamera.UpdateViewMatrix();
 }
