@@ -1,7 +1,6 @@
 #pragma once
 #include <iostream>
 #include <string>
-#include <future>
 #include <thread> 
 #include <WS2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
@@ -31,5 +30,5 @@ private:
     char buf[4096];
     string userInput;
     RenderItem* otherPlayer;
-
+    bool running;
 };

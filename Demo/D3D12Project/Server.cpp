@@ -34,11 +34,11 @@ Server::Server() {
 
 	consoleOutput = L"Server setup complete...\n";
 	::OutputDebugString(consoleOutput.c_str());
-
+	running = true;
 }
 
 Server::~Server() {
-
+	running = false;
 	FD_CLR(listening, &master);
 	closesocket(listening);
 
@@ -62,7 +62,7 @@ Server::~Server() {
 void Server::start() {
 	//future<void> futureObj
 	//while (futureObj.wait_for(std::chrono::milliseconds(1)) == std::future_status::timeout) {
-	while(true){
+	while(running){
 		fd_set copy = master;
 		TIMEVAL tv;
 		tv.tv_usec = 10000;

@@ -39,9 +39,11 @@ Client::Client() {
 		WSACleanup();
 		return;
 	}
+	running = true;
 }
 
 Client::~Client() {
+	running = false;
 	// Gracefully close down everything
 	closesocket(sock);
 	WSACleanup();
@@ -50,7 +52,7 @@ Client::~Client() {
 void Client::start() {
 	//future<void> futureObj
 	//while (futureObj.wait_for(std::chrono::milliseconds(1)) == std::future_status::timeout) {
-	while(true){
+	while(running){
 		ZeroMemory(buf, 4096);
 		int bytesReceived = recv(sock, buf, 4096, 0);
 		if (bytesReceived > 0)
@@ -94,7 +96,7 @@ void Client::start() {
 			otherPlayer->Geo;
 			XMStoreFloat4x4(&otherPlayer->World, boxWorld);
 			////calculate new bounding box of first box
-			//calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
+			//calcAABB(boxBoundingVertPosArray, otherPlayer->World, otherPlayer->boundingboxminvertex, otherPlayer->boundingboxmaxvertex);
 			////formerly mboxritemmovable
 			otherPlayer->NumFramesDirty++;
 		}

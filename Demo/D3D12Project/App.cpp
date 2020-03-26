@@ -4,7 +4,8 @@
 // Hold down '1' key to view scene in wireframe mode.
 //***************************************************************************************
 
-#include <future>
+
+#include <thread> 
 #include "../../Common/d3dApp.h"
 #include "../../Common/MathHelper.h"
 #include "../../Common/UploadBuffer.h"
@@ -69,6 +70,7 @@ private:
     void BuildRenderItems();
     void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
 	void SetupClientServer();
+	void signalHandler(int signum);
 private:
 
     std::vector<std::unique_ptr<FrameResource>> mFrameResources;
@@ -123,8 +125,7 @@ private:
 	Client* gameClient = nullptr;
 	thread clientThread;
 	thread serverThread;
-	promise<void> exitSignal;
-	promise<void> exitSignal2;
+	bool isHost = false;
 };
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
@@ -166,14 +167,8 @@ int App::Run()
 
 	mTimer.Reset();
 
-	/*future<void> futureObj = exitSignal.get_future();
-	future<void> futureObj2 = exitSignal2.get_future();
-	clientThread = thread(&Client::start, gameClient, move(futureObj));
-	if (gameServer != nullptr) {
-		serverThread = thread(&Server::start, gameServer, move(futureObj2));
-	}*/
 	clientThread = thread(&Client::start, gameClient);
-	if (gameServer != nullptr) {
+	if (isHost) {
 		serverThread = thread(&Server::start, gameServer);
 	}
 
@@ -190,21 +185,21 @@ int App::Run()
 		{
 			mTimer.Tick();
 
-			if (!mAppPaused)
-			{
+			/*if (!mAppPaused)
+			{*/
 				CalculateFrameStats();
 				Update(mTimer);
 				Draw(mTimer);
-			}
-			else
+			//}
+			/*else
 			{
 				Sleep(100);
-			}
+			}*/
 		}
 	}
-	/*exitSignal.set_value();
-	exitSignal2.set_value();*/
-	if (gameServer != nullptr) {
+	delete gameClient;
+	delete gameServer;
+	if (isHost) {
 		serverThread.join();
 	}
 	clientThread.join();
@@ -251,7 +246,7 @@ bool App::Initialize()
 
     return true;
 }
- 
+
 void App::OnResize()
 {
     D3DApp::OnResize();
@@ -714,6 +709,7 @@ void App::SetupClientServer() {
 		if (GetAsyncKeyState('1') & 0x8000) {
 			gameServer = new Server();
 			gameClient = new Client();
+			isHost = true;
 			break;
 		}
 		if (GetAsyncKeyState('2') & 0x8000) {
@@ -1037,6 +1033,7 @@ void App::BuildRenderItems()
     boxRitem2->StartIndexLocation = boxRitem2->Geo->DrawArgs["box2"].StartIndexLocation;
     boxRitem2->BaseVertexLocation = boxRitem2->Geo->DrawArgs["box2"].BaseVertexLocation;
 	secondbox = boxRitem2.get();
+	gameClient->setPlayer(boxRitem2.get());
     mAllRitems.push_back(std::move(boxRitem2));
 
 	calcAABB(boxBoundingVertPosArray, secondbox->World, secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex);
