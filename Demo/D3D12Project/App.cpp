@@ -64,6 +64,7 @@ private:
     void BuildRootSignature();
     void BuildShadersAndInputLayout();
     void BuildShapeGeometry();
+	void BuildplatformGeometry();
     void BuildPSOs();
     void BuildFrameResources();
     void BuildRenderItems();
@@ -223,6 +224,7 @@ bool App::Initialize()
     BuildRootSignature();
     BuildShadersAndInputLayout();
     BuildShapeGeometry();
+	BuildplatformGeometry();
 
 	//for creating the necessary vertices for bounding boxes
 	CreateBoundingVolumes(box.Vertices, boxBoundingVertPosArray, boxBoundingVertIndexArray);
@@ -945,6 +947,63 @@ void App::BuildShapeGeometry()
 	mGeometries[geo->Name] = std::move(geo);
 }
 
+void App::BuildplatformGeometry()
+{
+	GeometryGenerator geoGen;
+	GeometryGenerator::MeshData platform = geoGen.CreateBox(1.5f, 0.5f, 1.5f, 3);
+
+	UINT platformVertexOffset = 0;
+
+	UINT platformIndexOffset = 0;
+
+	SubmeshGeometry platformSubmesh;
+	platformSubmesh.IndexCount = (UINT)platform.Indices32.size();
+	platformSubmesh.StartIndexLocation = platformIndexOffset;
+	platformSubmesh.BaseVertexLocation = platformVertexOffset;
+
+	auto totalVertexCount =
+		platform.Vertices.size();
+
+	std::vector<Vertex> vertices(totalVertexCount);
+
+	UINT k = 0;
+	for (size_t i = 0; i < platform.Vertices.size(); ++i, ++k)
+	{
+		vertices[k].Pos = platform.Vertices[i].Position;
+		vertices[k].Color = XMFLOAT4(DirectX::Colors::Red);
+	}
+
+	std::vector<std::uint16_t> indices;
+	indices.insert(indices.end(), std::begin(platform.GetIndices16()), std::end(platform.GetIndices16()));
+
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
+
+	auto geo = std::make_unique<MeshGeometry>();
+	geo->Name = "platformGeo";
+
+	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+
+	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+
+	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
+
+	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
+
+	geo->VertexByteStride = sizeof(Vertex);
+	geo->VertexBufferByteSize = vbByteSize;
+	geo->IndexFormat = DXGI_FORMAT_R16_UINT;
+	geo->IndexBufferByteSize = ibByteSize;
+
+	geo->DrawArgs["platform"] = platformSubmesh;
+
+	mGeometries[geo->Name] = std::move(geo);
+}
+
 void App::BuildPSOs()
 {
     D3D12_GRAPHICS_PIPELINE_STATE_DESC opaquePsoDesc;
@@ -1049,6 +1108,20 @@ void App::BuildRenderItems()
     gridRitem->StartIndexLocation = gridRitem->Geo->DrawArgs["grid"].StartIndexLocation;
     gridRitem->BaseVertexLocation = gridRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
 	mAllRitems.push_back(std::move(gridRitem));*/
+
+	UINT objCBIndex = 2;
+	for (int i = 0; i < 10; ++i) {
+		auto platformRitem = std::make_unique<RenderItem>();
+		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(-5.0f, 0.0f, i*5.0f));
+		platformRitem->ObjCBIndex = objCBIndex++;
+		platformRitem->Geo = mGeometries["platformGeo"].get();
+		platformRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+		platformRitem->IndexCount = platformRitem->Geo->DrawArgs["platform"].IndexCount;
+		platformRitem->StartIndexLocation = platformRitem->Geo->DrawArgs["platform"].StartIndexLocation;
+		platformRitem->BaseVertexLocation = platformRitem->Geo->DrawArgs["platform"].BaseVertexLocation;
+		mAllRitems.push_back(std::move(platformRitem));
+	}
+	
 
 	/*UINT objCBIndex = 2;
 	for(int i = 0; i < 5; ++i)
