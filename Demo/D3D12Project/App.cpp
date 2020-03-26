@@ -24,7 +24,7 @@ using namespace DirectX::PackedVector;
 const int gNumFrameResources = 3;
 
 //For Development only
-const bool isTopDown = false;
+const bool isTopDown = true;
 XMFLOAT3 topPos = { 0.0f, 20.0f, 0.0f };
 
 
@@ -587,38 +587,41 @@ XMFLOAT3 App::makeFloor(XMFLOAT3 first, XMFLOAT3 second)
 void App::OnKeyboardInput(const GameTimer& gt)
 {
     const float dt = gt.DeltaTime();
+	PhysicsEntity* entPhys = ent.GetPhysHolder();
+
     float boxSpeed = 3.0f * dt;
-		if (GetAsyncKeyState('W') & 0x8000) {
-			firstbox->moveside = 1;
-			pos.z += boxSpeed;
-			//keyboardInput.z += boxSpeed;
-		}
-		if (GetAsyncKeyState('S') & 0x8000) {
-			firstbox->moveside = 2;
-			pos.z -= boxSpeed;
-			//keyboardInput.z -= boxSpeed;
-		}
-		if (GetAsyncKeyState('A') & 0x8000){
-			firstbox->moveside = 3;
-			pos.x -= boxSpeed;
-		//keyboardInput.x -= boxSpeed;
-		}
-		if (GetAsyncKeyState('D') & 0x8000) {
-			firstbox->moveside = 4;
-			pos.x += boxSpeed;
-			//keyboardInput.x += boxSpeed;
-		}
-		if (GetAsyncKeyState('I') & 0x8000) {
-			pos.y += boxSpeed;
-			//keyboardInput.y += boxSpeed;
-		}
-		if (GetAsyncKeyState('K') & 0x8000) {
-			pos.y -= boxSpeed;
-			//keyboardInput.y -= boxSpeed;
-		}
-		if (GetAsyncKeyState(' ') & 0x8000) {
-			ent.decrementJump();
-		}
+
+	if (GetAsyncKeyState('Q') & 0x8000) {
+		entPhys->setAngleNegative();
+	}
+	if (GetAsyncKeyState('E') & 0x8000) {
+		entPhys->setAnglePositive();
+		//keyboardInput.y -= boxSpeed;
+	}
+	if (GetAsyncKeyState('W') & 0x8000) {
+		firstbox->moveside = 1;
+		entPhys->setZIntentPositive();
+		//keyboardInput.z += boxSpeed;
+	}
+	if (GetAsyncKeyState('S') & 0x8000) {
+		firstbox->moveside = 2;
+		entPhys->setZIntentNegative();
+		//keyboardInput.z -= boxSpeed;
+	}
+	if (GetAsyncKeyState('A') & 0x8000){
+		firstbox->moveside = 3;
+		entPhys->setXIntentNegative();
+	//keyboardInput.x -= boxSpeed;
+	}
+	if (GetAsyncKeyState('D') & 0x8000) {
+		firstbox->moveside = 4;
+		entPhys->setXIntentPositive();
+		//keyboardInput.x += boxSpeed;
+	}
+	if (GetAsyncKeyState(' ') & 0x8000) {
+		entPhys->decrementJump();
+	}
+
 	//box translation//
 	XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
 	XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
@@ -648,7 +651,7 @@ void App::OnKeyboardInput(const GameTimer& gt)
 	//formerly mboxritemmovable
     firstbox->NumFramesDirty++;
 
-	ent.resetJump(Physics::YPhysics(pos, ent.GetPhysHolder(), boxSpeed));
+	Physics::XYZPhysics(pos, entPhys, boxSpeed);
     ent.SetPosition(pos);
     if (!isTopDown) {
         mCamera.SetPosition(ent.getHPos());

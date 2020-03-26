@@ -151,6 +151,7 @@
     <ClCompile Include="..\..\Common\GeometryGenerator.cpp" />
     <ClCompile Include="..\..\Common\MathHelper.cpp" />
     <ClCompile Include="..\..\Physics\Physics.cpp" />
+    <ClCompile Include="..\..\Physics\PhysicsEntity.cpp" />
     <ClCompile Include="Client.cpp" />
     <ClCompile Include="FrameResource.cpp" />
     <ClCompile Include="App.cpp" />
@@ -167,6 +168,7 @@
     <ClInclude Include="..\..\Common\MathHelper.h" />
     <ClInclude Include="..\..\Common\UploadBuffer.h" />
     <ClInclude Include="..\..\Physics\Physics.h" />
+    <ClInclude Include="..\..\Physics\PhysicsEntity.h" />
     <ClInclude Include="Client.h" />
     <ClInclude Include="FrameResource.h" />
     <ClInclude Include="RenderItem.h" />
