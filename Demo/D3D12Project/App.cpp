@@ -64,6 +64,7 @@ private:
     void BuildRootSignature();
     void BuildShadersAndInputLayout();
     void BuildShapeGeometry();
+	void BuildSkyBoxGeometry();
 	void BuildplatformGeometry();
     void BuildPSOs();
     void BuildFrameResources();
@@ -224,6 +225,7 @@ bool App::Initialize()
     BuildRootSignature();
     BuildShadersAndInputLayout();
     BuildShapeGeometry();
+	BuildSkyBoxGeometry();
 	BuildplatformGeometry();
 
 	//for creating the necessary vertices for bounding boxes
@@ -947,6 +949,64 @@ void App::BuildShapeGeometry()
 	mGeometries[geo->Name] = std::move(geo);
 }
 
+void App::BuildSkyBoxGeometry()
+{
+	GeometryGenerator geoGen;
+	GeometryGenerator::MeshData skyBox = geoGen.CreateBox(100.0f, 100.0f, 100.0f, 3);
+
+	UINT skyBoxVertexOffset = 0;
+
+	UINT skyBoxIndexOffset = 0;
+
+	SubmeshGeometry skyBoxSubmesh;
+	skyBoxSubmesh.IndexCount = (UINT)skyBox.Indices32.size();
+	skyBoxSubmesh.StartIndexLocation = skyBoxIndexOffset;
+	skyBoxSubmesh.BaseVertexLocation = skyBoxVertexOffset;
+
+	auto totalVertexCount =
+		skyBox.Vertices.size();
+
+	std::vector<Vertex> vertices(totalVertexCount);
+
+	UINT k = 0;
+	for (size_t i = 0; i < skyBox.Vertices.size(); ++i, ++k)
+	{
+		vertices[k].Pos = skyBox.Vertices[i].Position;
+		vertices[k].Color = XMFLOAT4(DirectX::Colors::SkyBlue);
+	}
+
+	std::vector<std::uint16_t> indices;
+	indices.insert(indices.end(), std::begin(skyBox.GetIndices16()), std::end(skyBox.GetIndices16()));
+
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
+
+	auto geo = std::make_unique<MeshGeometry>();
+	geo->Name = "skyBoxGeo";
+
+	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+
+	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+
+	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
+
+	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
+
+	geo->VertexByteStride = sizeof(Vertex);
+	geo->VertexBufferByteSize = vbByteSize;
+	geo->IndexFormat = DXGI_FORMAT_R16_UINT;
+	geo->IndexBufferByteSize = ibByteSize;
+
+	geo->DrawArgs["skyBox"] = skyBoxSubmesh;
+
+	mGeometries[geo->Name] = std::move(geo);
+}
+
+
 void App::BuildplatformGeometry()
 {
 	GeometryGenerator geoGen;
@@ -1024,7 +1084,12 @@ void App::BuildPSOs()
 		reinterpret_cast<BYTE*>(mShaders["opaquePS"]->GetBufferPointer()),
 		mShaders["opaquePS"]->GetBufferSize()
 	};
-	opaquePsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+
+	CD3DX12_RASTERIZER_DESC rsDesc(D3D12_DEFAULT);
+	//opaquePsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	rsDesc.CullMode = D3D12_CULL_MODE_NONE;
+	opaquePsoDesc.RasterizerState = rsDesc;
+	opaquePsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
     opaquePsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
 	opaquePsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	opaquePsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
@@ -1109,6 +1174,16 @@ void App::BuildRenderItems()
     gridRitem->StartIndexLocation = gridRitem->Geo->DrawArgs["grid"].StartIndexLocation;
     gridRitem->BaseVertexLocation = gridRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
 	mAllRitems.push_back(std::move(gridRitem));
+
+	auto skyBoxRitem = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&skyBoxRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
+	skyBoxRitem->ObjCBIndex = objCBIndex++;
+	skyBoxRitem->Geo = mGeometries["skyBoxGeo"].get();
+	skyBoxRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	skyBoxRitem->IndexCount = skyBoxRitem->Geo->DrawArgs["skyBox"].IndexCount;
+	skyBoxRitem->StartIndexLocation = skyBoxRitem->Geo->DrawArgs["skyBox"].StartIndexLocation;
+	skyBoxRitem->BaseVertexLocation = skyBoxRitem->Geo->DrawArgs["skyBox"].BaseVertexLocation;
+	mAllRitems.push_back(std::move(skyBoxRitem));
 
 	for (int i = 0; i < 10; ++i) {
 		auto platformRitem = std::make_unique<RenderItem>();
