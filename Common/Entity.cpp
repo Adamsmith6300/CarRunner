@@ -91,6 +91,43 @@ POS Entity::GetLook3f()const
 	return mLook;
 }
 
+void Entity::calcAABB(std::vector<XMFLOAT3> boxVerts, XMFLOAT4X4& worldspace, XMVECTOR& boxmin, XMVECTOR& boxmax)
+{
+	//OutputDebugString(L"Calculating AABB");
+	XMFLOAT3 minVertex = XMFLOAT3(FLT_MAX, FLT_MAX, FLT_MAX);
+	XMFLOAT3 maxVertex = XMFLOAT3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+	XMMATRIX world = XMLoadFloat4x4(&worldspace);
+	//Loop through the 8 vertices describing the bounding box
+	for (UINT i = 0; i < 8; i++)
+	{
+		//Transform the bounding boxes vertices to the objects world space
+		XMVECTOR Vert = XMVectorSet(boxVerts[i].x, boxVerts[i].y, boxVerts[i].z, 0.0f);
+		Vert = XMVector3TransformCoord(Vert, world);
+
+		//Get the smallest vertex 
+		minVertex.x = min(minVertex.x, XMVectorGetX(Vert));    // Find smallest x value in model
+		minVertex.y = min(minVertex.y, XMVectorGetY(Vert));    // Find smallest y value in model
+		minVertex.z = min(minVertex.z, XMVectorGetZ(Vert));    // Find smallest z value in model
+
+		//Get the largest vertex 
+		maxVertex.x = max(maxVertex.x, XMVectorGetX(Vert));    // Find largest x value in model
+		maxVertex.y = max(maxVertex.y, XMVectorGetY(Vert));    // Find largest y value in model
+		maxVertex.z = max(maxVertex.z, XMVectorGetZ(Vert));    // Find largest z value in model
+	}
+
+	//Store Bounding Box's min and max vertices
+	boxmin = XMVectorSet(minVertex.x, minVertex.y, minVertex.z, 0.0f);
+	boxmax = XMVectorSet(maxVertex.x, maxVertex.y, maxVertex.z, 0.0f);
+}
+
+POS Entity::getCenter() const
+{
+	XMFLOAT3 center = {boundingboxmaxvertex.x - boundingboxminvertex.x /2, boundingboxmaxvertex.y - boundingboxminvertex.y / 2, boundingboxmaxvertex.z - boundingboxminvertex.z / 2};
+	center = { boundingboxminvertex.x + center.x, boundingboxminvertex.y + center.y, boundingboxminvertex.z + center.z };
+
+	return center;
+}
+
 //PhysHolder
 PhysHolder* Entity::GetPhysHolder() const
 {

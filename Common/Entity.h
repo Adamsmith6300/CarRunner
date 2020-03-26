@@ -1,12 +1,15 @@
 #pragma once
 #include "d3dUtil.h"
+#include "MathHelper.h"
+using namespace DirectX;
 
 #define POS DirectX::XMFLOAT3
 #define DIRV DirectX::XMVECTOR
 
 const float MAXJUMPS = 1.0f;
 
-//Done quick and dirty, will be in other
+//Done quick and dirty, will be in 
+
 class PhysHolder {
 private:
 	POS mVelocity, mIntent;
@@ -30,7 +33,7 @@ private:
 	POS mRight;
 	POS mUp;
 	POS mLook;
-
+	
 	PhysHolder* pPhysHolder = nullptr;
 	float jumps = MAXJUMPS;
 
@@ -39,6 +42,11 @@ public:
 	Entity();
 	Entity(POS position, POS right, POS up, POS look);
 	~Entity() {};
+
+	//world matrix used for collision stuff
+	XMFLOAT4X4 World = MathHelper::Identity4x4();
+	POS boundingboxminvertex;
+	POS boundingboxmaxvertex;
 
 	DIRV GetPosition()const;
 	POS GetPosition3f()const;
@@ -53,6 +61,9 @@ public:
 	POS GetUp3f()const;
 	DIRV GetLook()const;
 	POS GetLook3f()const;
+
+	void calcAABB(std::vector<XMFLOAT3> boxVerts, XMFLOAT4X4& worldspace, XMVECTOR& boxmin, XMVECTOR& boxmax);
+	POS getCenter()const;
 
 	void walk(float d);
 	void Strafe(float d);
