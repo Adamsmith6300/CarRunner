@@ -59,9 +59,10 @@ Server::~Server() {
 
 }
 
-void Server::start(future<void> futureObj) {
-
-	while (futureObj.wait_for(std::chrono::milliseconds(1)) == std::future_status::timeout) {
+void Server::start() {
+	//future<void> futureObj
+	//while (futureObj.wait_for(std::chrono::milliseconds(1)) == std::future_status::timeout) {
+	while(true){
 		fd_set copy = master;
 		TIMEVAL tv;
 		tv.tv_usec = 10000;

@@ -47,8 +47,10 @@ Client::~Client() {
 	WSACleanup();
 }
 
-void Client::start(future<void> futureObj) {
-	while (futureObj.wait_for(std::chrono::milliseconds(1)) == std::future_status::timeout) {
+void Client::start() {
+	//future<void> futureObj
+	//while (futureObj.wait_for(std::chrono::milliseconds(1)) == std::future_status::timeout) {
+	while(true){
 		ZeroMemory(buf, 4096);
 		int bytesReceived = recv(sock, buf, 4096, 0);
 		if (bytesReceived > 0)

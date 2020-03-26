@@ -166,11 +166,15 @@ int App::Run()
 
 	mTimer.Reset();
 
-	future<void> futureObj = exitSignal.get_future();
+	/*future<void> futureObj = exitSignal.get_future();
 	future<void> futureObj2 = exitSignal2.get_future();
 	clientThread = thread(&Client::start, gameClient, move(futureObj));
 	if (gameServer != nullptr) {
 		serverThread = thread(&Server::start, gameServer, move(futureObj2));
+	}*/
+	clientThread = thread(&Client::start, gameClient);
+	if (gameServer != nullptr) {
+		serverThread = thread(&Server::start, gameServer);
 	}
 
 	while (msg.message != WM_QUIT)
@@ -198,8 +202,8 @@ int App::Run()
 			}
 		}
 	}
-	exitSignal.set_value();
-	exitSignal2.set_value();
+	/*exitSignal.set_value();
+	exitSignal2.set_value();*/
 	if (gameServer != nullptr) {
 		serverThread.join();
 	}
@@ -706,17 +710,17 @@ void App::UpdateMainPassCB(const GameTimer& gt)
 }
 
 void App::SetupClientServer() {
-	/*while (true) {
-		if (GetAsyncKeyState('1') & 0x8000) {*/
+	while (true) {
+		if (GetAsyncKeyState('1') & 0x8000) {
 			gameServer = new Server();
 			gameClient = new Client();
-			/*break;
+			break;
 		}
 		if (GetAsyncKeyState('2') & 0x8000) {
 			gameClient = new Client();
 			break;
 		}
-	}*/
+	}
 }
 
 void App::BuildDescriptorHeaps()
