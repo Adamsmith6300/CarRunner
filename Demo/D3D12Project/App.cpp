@@ -64,6 +64,7 @@ private:
 	XMFLOAT3 makeFloor(XMFLOAT3 first, XMFLOAT3 second);
 
 	void BuildEnt(string name, XMFLOAT3 pos, XMFLOAT3 right, XMFLOAT3 up, XMFLOAT3 look);
+	void BuildEnt(string name);
 	Entity* FindEnt(string name);
 
     void BuildDescriptorHeaps();
@@ -232,7 +233,7 @@ bool App::Initialize()
     ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
 	
 	BuildEnt("player", pos, right, up, look);
-	//BuildEnt("block");
+	BuildEnt("block");
 	SetupClientServer();
     BuildRootSignature();
     BuildShadersAndInputLayout();
@@ -625,6 +626,11 @@ void App::BuildEnt(string name, XMFLOAT3 pos, XMFLOAT3 right, XMFLOAT3 up, XMFLO
 	ents.insert(make_pair(name, new Entity{pos, right, up, look}));
 }
 
+void App::BuildEnt(string name)
+{
+	ents.insert(make_pair(name, new Entity()));
+}
+
 Entity* App::FindEnt(string name) {
 	return ents.find(name)->second;
 }
@@ -680,22 +686,22 @@ void App::OnKeyboardInput(const GameTimer& gt)
 	OutputDebugString(L"calculating movable box after moving\n");
 	FindEnt("player")->calcAABB(boxBoundingVertPosArray);
 
-	//if (Physics::collisionCheck(FindEnt("player"),FindEnt("block"))){
-	//	OutputDebugString(L"Collision\n");
+	if (Physics::collisionCheck(FindEnt("player"),FindEnt("block"))){
+		OutputDebugString(L"Collision\n");
 
-	//	Physics::handleCollision(FindEnt("player"),FindEnt("block"));
+		Physics::handleCollision(FindEnt("player"),FindEnt("block"));
 
-	//	boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
-	//	boxWorld = boxRotate * boxScale * boxOffset;
-	//	XMStoreFloat4x4(&firstbox->World, boxWorld);
+		boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
+		boxWorld = boxRotate * boxScale * boxOffset;
+		XMStoreFloat4x4(&firstbox->World, boxWorld);
 
-	//	//calculate new bounding box of first box after collision
-	//	FindEnt("player")->calcAABB(boxBoundingVertPosArray);
-	//	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
-	//}
-	//else {
-	//	OutputDebugString(L"No Collision\n");
-	//}
+		//calculate new bounding box of first box after collision
+		FindEnt("player")->calcAABB(boxBoundingVertPosArray);
+		calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
+	}
+	else {
+		OutputDebugString(L"No Collision\n");
+	}
 	
 	//formerly mboxritemmovable
     firstbox->NumFramesDirty++;
@@ -1209,8 +1215,8 @@ void App::BuildRenderItems()
 
 
     auto boxRitem2 = std::make_unique<RenderItem>();
-    //XMStoreFloat4x4(&boxRitem2->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box2Translation);
-	//XMStoreFloat4x4(&block.World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box2Translation);
+    XMStoreFloat4x4(&boxRitem2->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box2Translation);
+	XMStoreFloat4x4(&FindEnt("block")->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box2Translation);
 
     boxRitem2->ObjCBIndex = objCBIndex++;
     boxRitem2->Geo = mGeometries["shapeGeo"].get();
@@ -1223,7 +1229,7 @@ void App::BuildRenderItems()
     mAllRitems.push_back(std::move(boxRitem2));
 
 	OutputDebugString(L"CalcAABB of block entity\n");
-	//block.calcAABB(boxBoundingVertPosArray);
+	FindEnt("block")->calcAABB(boxBoundingVertPosArray);
 	calcAABB(boxBoundingVertPosArray, secondbox->World, secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex);
 
 	//std::wostringstream ss;
