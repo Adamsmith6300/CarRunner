@@ -6,7 +6,10 @@ class Physics
 {
 public:
 	static void XYZPhysics(POS& pos, PhysicsEntity* e, float deltaTime);
-
+	static bool collisionCheck(Entity* firstEntity, Entity* secondEntity);
+	static void handleCollision(Entity* firstEntity, Entity* secondEntity);
+	static XMFLOAT3 makeCeil(XMFLOAT3 first, XMFLOAT3 second);
+	static XMFLOAT3 makeFloor(XMFLOAT3 first, XMFLOAT3 second);
 private:
 	static constexpr const float gravity = -1.0f,
 								 jumpForce = 2.0f,
