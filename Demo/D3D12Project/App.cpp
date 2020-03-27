@@ -63,6 +63,7 @@ private:
 	XMFLOAT3 makeFloor(XMFLOAT3 first, XMFLOAT3 second);
 
 	void BuildEnt(string name, XMFLOAT3 pos, XMFLOAT3 right, XMFLOAT3 up, XMFLOAT3 look);
+	Entity* FindEnt(string name);
 
     void BuildDescriptorHeaps();
     void BuildConstantBufferViews();
@@ -588,11 +589,15 @@ XMFLOAT3 App::makeFloor(XMFLOAT3 first, XMFLOAT3 second)
 void App::BuildEnt(string name, XMFLOAT3 pos, XMFLOAT3 right, XMFLOAT3 up, XMFLOAT3 look) {
 	ents.insert(make_pair(name, new Entity{pos, right, up, look}));
 }
+
+Entity* App::FindEnt(string name) {
+	return ents.find("player")->second;
+}
  
 void App::OnKeyboardInput(const GameTimer& gt)
 {
     const float dt = gt.DeltaTime();
-	PhysicsEntity* entPhys = ents.find("player")->second->GetPhysHolder();
+	PhysicsEntity* entPhys = FindEnt("player")->GetPhysHolder();
 
     float boxSpeed = 3.0f * dt;
 
@@ -657,9 +662,9 @@ void App::OnKeyboardInput(const GameTimer& gt)
     firstbox->NumFramesDirty++;
 
 	Physics::XYZPhysics(pos, entPhys, boxSpeed);
-	ents.find("player")->second->SetPosition(pos);
+	FindEnt("player")->SetPosition(pos);
     if (!isTopDown) {
-        mCamera.SetPosition(ents.find("player")->second->getHPos());
+        mCamera.SetPosition(FindEnt("player")->getHPos());
     }
     mCamera.UpdateViewMatrix();
 }
