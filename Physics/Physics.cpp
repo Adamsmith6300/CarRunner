@@ -94,31 +94,31 @@ bool Physics::Ground(POS& pos, POS& velocity)
 	return true;
 }
 
-bool Physics::collisionCheck(Entity& firstEntity, Entity& secondEntity)
+bool Physics::collisionCheck(Entity* firstEntity, Entity* secondEntity)
 {
 	std::wostringstream ss;
 	//ss << XMVectorGetX(firstboxmin) << " " << XMVectorGetX(secondboxmin)<< std::endl;
 	//ss << "blockmin " << secondEntity.boundingboxminvertex.x << " " << secondEntity.boundingboxminvertex.y << " " << secondEntity.boundingboxminvertex.z << std::endl;
 	//ss << "Firstbox center"<< firstEntity.getCenter().x << " " << firstEntity.getCenter().y << " " << firstEntity.getCenter().z << std::endl;
 	//ss << "Secondbox center" << secondEntity.getCenter().x << " " << secondEntity.getCenter().y << " " << secondEntity.getCenter().z << std::endl;
-	ss << "Firstbox Vertex " << firstEntity.boundingboxminvertex.x << " " << firstEntity.boundingboxminvertex.y << " " << firstEntity.boundingboxminvertex.z << std::endl;
-	ss << "Secondbox Vertex " << secondEntity.boundingboxminvertex.x << " " << secondEntity.boundingboxminvertex.y << " " << secondEntity.boundingboxminvertex.z << std::endl;
+	ss << "Firstbox Vertex " << firstEntity->boundingboxminvertex.x << " " << firstEntity->boundingboxminvertex.y << " " << firstEntity->boundingboxminvertex.z << std::endl;
+	ss << "Secondbox Vertex " << secondEntity->boundingboxminvertex.x << " " << secondEntity->boundingboxminvertex.y << " " << secondEntity->boundingboxminvertex.z << std::endl;
 	//ss << "normal " <<normal.x << " " << normal.y << " " << normal.z << std::endl;
 	//ss << std::endl;
 	OutputDebugString(ss.str().c_str());
 
 	//Is obj1's max X greater than obj2's min X? If not, obj1 is to the LEFT of obj2
-	if (firstEntity.boundingboxmaxvertex.x > secondEntity.boundingboxminvertex.x) {
+	if (firstEntity->boundingboxmaxvertex.x > secondEntity->boundingboxminvertex.x) {
 		//Is obj1's min X less than obj2's max X? If not, obj1 is to the RIGHT of obj2
-		if (firstEntity.boundingboxminvertex.x < secondEntity.boundingboxmaxvertex.x) {
+		if (firstEntity->boundingboxminvertex.x < secondEntity->boundingboxmaxvertex.x) {
 			//Is obj1's max Y greater than obj2's min Y? If not, obj1 is UNDER obj2
-			if (firstEntity.boundingboxmaxvertex.y > secondEntity.boundingboxminvertex.y) {
+			if (firstEntity->boundingboxmaxvertex.y > secondEntity->boundingboxminvertex.y) {
 				//Is obj1's min Y less than obj2's max Y? If not, obj1 is ABOVE obj2
-				if (firstEntity.boundingboxminvertex.y < secondEntity.boundingboxmaxvertex.y) {
+				if (firstEntity->boundingboxminvertex.y < secondEntity->boundingboxmaxvertex.y) {
 					//Is obj1's max Z greater than obj2's min Z? If not, obj1 is IN FRONT OF obj2
-					if (firstEntity.boundingboxmaxvertex.z > secondEntity.boundingboxminvertex.z) {
+					if (firstEntity->boundingboxmaxvertex.z > secondEntity->boundingboxminvertex.z) {
 						//Is obj1's min Z less than obj2's max Z? If not, obj1 is BEHIND obj2
-						if (firstEntity.boundingboxminvertex.z < secondEntity.boundingboxmaxvertex.z) {
+						if (firstEntity->boundingboxminvertex.z < secondEntity->boundingboxmaxvertex.z) {
 							//If we've made it this far, then the two bounding boxes are colliding
 							return true;
 						}
@@ -133,12 +133,12 @@ bool Physics::collisionCheck(Entity& firstEntity, Entity& secondEntity)
 	return false;
 }
 
-void Physics::handleCollision(Entity& firstEntity, Entity& secondEntity)
+void Physics::handleCollision(Entity* firstEntity, Entity* secondEntity)
 {
-	PhysicsEntity* first = firstEntity.GetPhysHolder();
+	PhysicsEntity* first = firstEntity->GetPhysHolder();
 
-	XMFLOAT3 firstCenter = firstEntity.getCenter();
-	XMFLOAT3 secondCenter = secondEntity.getCenter();
+	XMFLOAT3 firstCenter = firstEntity->getCenter();
+	XMFLOAT3 secondCenter = secondEntity->getCenter();
 
 	//debugging output to check if values are correct//
 	/*std::wostringstream ss;
@@ -155,8 +155,8 @@ void Physics::handleCollision(Entity& firstEntity, Entity& secondEntity)
 	ss << "initial z " << pos.z << std::endl;*/
 	//ss << std::endl;
 
-	XMFLOAT3 intMin = Physics::makeCeil(firstEntity.boundingboxminvertex, secondEntity.boundingboxminvertex);
-	XMFLOAT3 intMax = Physics::makeFloor(firstEntity.boundingboxmaxvertex, secondEntity.boundingboxmaxvertex);
+	XMFLOAT3 intMin = Physics::makeCeil(firstEntity->boundingboxminvertex, secondEntity->boundingboxminvertex);
+	XMFLOAT3 intMax = Physics::makeFloor(firstEntity->boundingboxmaxvertex, secondEntity->boundingboxmaxvertex);
 
 	//area of the intersection of the two boxes
 	XMFLOAT3 intersection = { intMax.x - intMin.x,intMax.y - intMin.y,intMax.z - intMin.z };

@@ -1,7 +1,6 @@
 #pragma once
 #include <iostream>
 #include <string>
-#include <future>
 #include <thread> 
 #include <WS2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
@@ -16,7 +15,7 @@ public:
     Client(const Client& rhs) = delete;
     Client& operator=(const Client& rhs) = delete;
     ~Client();
-    void start(std::future<void> futureObj);
+    void start();
     void sendToServer(float x, float y, float z);
     wstring charMsgToWString(string& str);
     void setPlayer(RenderItem* oth) { otherPlayer = std::move(oth); };
@@ -31,5 +30,5 @@ private:
     char buf[4096];
     string userInput;
     RenderItem* otherPlayer;
-
+    bool running;
 };

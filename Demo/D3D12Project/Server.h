@@ -3,7 +3,7 @@
 #include <ws2tcpip.h>
 #include <stdio.h>
 #include <iostream>
-#include <future>
+//#include <future>
 #include <string>
 #include <sstream>
 
@@ -20,7 +20,7 @@ public:
     Server(const Server& rhs) = delete;
     Server& operator=(const Server& rhs) = delete;
     ~Server();
-    void start(std::future<void> futureObj);
+    void start();
     //void sendToClients(char playerMove);
     wstring charMsgToWString(string& str);
 
