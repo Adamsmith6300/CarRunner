@@ -16,6 +16,9 @@
 #include "Client.h"
 #include "FrameResource.h"
 #include "RenderItem.h"
+#include <map>
+
+#define ENTMAP map<string, Entity*>
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -59,6 +62,9 @@ private:
 	XMFLOAT3 makeCeil(XMFLOAT3 first, XMFLOAT3 second);
 	XMFLOAT3 makeFloor(XMFLOAT3 first, XMFLOAT3 second);
 
+	void BuildEnt(string name, XMFLOAT3 pos, XMFLOAT3 right, XMFLOAT3 up, XMFLOAT3 look);
+	Entity* FindEnt(string name);
+
     void BuildDescriptorHeaps();
     void BuildConstantBufferViews();
     void BuildRootSignature();
@@ -91,16 +97,11 @@ private:
 	// List of all the render items.
 	std::vector<std::unique_ptr<RenderItem>> mAllRitems;
     RenderItem* mBoxItemMovable;
-    /*XMFLOAT3 pos = { 0.0f, 0.0f, 0.0f };
+    XMFLOAT3 pos = { 0.0f, 0.0f, 0.0f };
     XMFLOAT3 right = {pos.x+1, pos.y, pos.z};
     XMFLOAT3 up = { pos.x, pos.y+1, pos.z };
     XMFLOAT3 look = { pos.x, pos.y, pos.z+1 };
-    Entity ent{ pos, right, up, look };*/
-	XMFLOAT3 pos;
-	XMFLOAT3 right;
-	XMFLOAT3 up;
-	XMFLOAT3 look;
-	Entity ent;
+	ENTMAP ents = {};
 
 	//global variables for the bounding box
 	RenderItem* firstbox = nullptr;
@@ -221,6 +222,7 @@ bool App::Initialize()
     // Reset the command list to prep for initialization commands.
     ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
 	
+	BuildEnt("player", pos, right, up, look);
 	SetupClientServer();
     BuildRootSignature();
     BuildShadersAndInputLayout();
@@ -232,10 +234,6 @@ bool App::Initialize()
 	CreateBoundingVolumes(box.Vertices, boxBoundingVertPosArray, boxBoundingVertIndexArray);
 
 	BuildRenderItems();
-	right = { pos.x + 1, pos.y, pos.z };
-	up = { pos.x, pos.y + 1, pos.z };
-	look = { pos.x, pos.y, pos.z + 1 };
-	ent = Entity{ pos, right, up, look };
     BuildFrameResources();
     BuildDescriptorHeaps();
     BuildConstantBufferViews();
@@ -587,11 +585,19 @@ XMFLOAT3 App::makeFloor(XMFLOAT3 first, XMFLOAT3 second)
 	if (second.z < first.z) first.z = second.z;
 	return first;
 }
+
+void App::BuildEnt(string name, XMFLOAT3 pos, XMFLOAT3 right, XMFLOAT3 up, XMFLOAT3 look) {
+	ents.insert(make_pair(name, new Entity{pos, right, up, look}));
+}
+
+Entity* App::FindEnt(string name) {
+	return ents.find("player")->second;
+}
  
 void App::OnKeyboardInput(const GameTimer& gt)
 {
     const float dt = gt.DeltaTime();
-	PhysicsEntity* entPhys = ent.GetPhysHolder();
+	PhysicsEntity* entPhys = FindEnt("player")->GetPhysHolder();
 
     float boxSpeed = 3.0f * dt;
 
@@ -656,9 +662,9 @@ void App::OnKeyboardInput(const GameTimer& gt)
     firstbox->NumFramesDirty++;
 
 	Physics::XYZPhysics(pos, entPhys, boxSpeed);
-    ent.SetPosition(pos);
+	FindEnt("player")->SetPosition(pos);
     if (!isTopDown) {
-        mCamera.SetPosition(ent.getHPos());
+        mCamera.SetPosition(FindEnt("player")->getHPos());
     }
     mCamera.UpdateViewMatrix();
 }
