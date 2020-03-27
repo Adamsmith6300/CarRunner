@@ -62,7 +62,7 @@ private:
 	XMFLOAT3 makeCeil(XMFLOAT3 first, XMFLOAT3 second);
 	XMFLOAT3 makeFloor(XMFLOAT3 first, XMFLOAT3 second);
 
-	Entity* BuildEnt(XMFLOAT3 pos, XMFLOAT3 right, XMFLOAT3 up, XMFLOAT3 look);
+	void BuildEnt(string name, XMFLOAT3 pos, XMFLOAT3 right, XMFLOAT3 up, XMFLOAT3 look);
 
     void BuildDescriptorHeaps();
     void BuildConstantBufferViews();
@@ -221,7 +221,7 @@ bool App::Initialize()
     // Reset the command list to prep for initialization commands.
     ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
 	
-	ents.insert(make_pair("player", BuildEnt(pos, right, up, look)));
+	BuildEnt("player", pos, right, up, look);
 	SetupClientServer();
     BuildRootSignature();
     BuildShadersAndInputLayout();
@@ -585,8 +585,8 @@ XMFLOAT3 App::makeFloor(XMFLOAT3 first, XMFLOAT3 second)
 	return first;
 }
 
-Entity* App::BuildEnt(XMFLOAT3 pos, XMFLOAT3 right, XMFLOAT3 up, XMFLOAT3 look) {
-	return new Entity{pos, right, up, look};
+void App::BuildEnt(string name, XMFLOAT3 pos, XMFLOAT3 right, XMFLOAT3 up, XMFLOAT3 look) {
+	ents.insert(make_pair(name, new Entity{pos, right, up, look}));
 }
  
 void App::OnKeyboardInput(const GameTimer& gt)
