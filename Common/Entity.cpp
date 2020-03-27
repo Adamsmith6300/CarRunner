@@ -1,7 +1,7 @@
 #include "Entity.h"
 
 Entity::Entity()
-:	pPhysHolder(new PhysHolder())
+:	pPhysHolder(new PhysicsEntity())
 {
 	mPosition = { 0.0f, 0.0f, 0.0f };
 	mRight = { 1.0f, 0.0f, 0.0f };
@@ -12,7 +12,7 @@ Entity::Entity()
 }
 
 Entity::Entity(POS position, POS right, POS up, POS look)
-:	pPhysHolder(new PhysHolder()),
+:	pPhysHolder(new PhysicsEntity()),
 	mPosition(position),
 	mRight(right),
 	mUp(up),
@@ -91,12 +91,12 @@ POS Entity::GetLook3f()const
 	return mLook;
 }
 
-void Entity::calcAABB(std::vector<XMFLOAT3> boxVerts, XMFLOAT4X4& worldspace, XMVECTOR& boxmin, XMVECTOR& boxmax)
+void Entity::calcAABB(std::vector<POS> boxVerts)
 {
 	//OutputDebugString(L"Calculating AABB");
-	XMFLOAT3 minVertex = XMFLOAT3(FLT_MAX, FLT_MAX, FLT_MAX);
-	XMFLOAT3 maxVertex = XMFLOAT3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-	XMMATRIX world = XMLoadFloat4x4(&worldspace);
+	POS minVertex = POS(FLT_MAX, FLT_MAX, FLT_MAX);
+	POS maxVertex = POS(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+	XMMATRIX world = XMLoadFloat4x4(&World);
 	//Loop through the 8 vertices describing the bounding box
 	for (UINT i = 0; i < 8; i++)
 	{
@@ -116,64 +116,24 @@ void Entity::calcAABB(std::vector<XMFLOAT3> boxVerts, XMFLOAT4X4& worldspace, XM
 	}
 
 	//Store Bounding Box's min and max vertices
-	boxmin = XMVectorSet(minVertex.x, minVertex.y, minVertex.z, 0.0f);
-	boxmax = XMVectorSet(maxVertex.x, maxVertex.y, maxVertex.z, 0.0f);
+	boundingboxminvertex = {minVertex.x, minVertex.y, minVertex.z};
+	boundingboxmaxvertex = {maxVertex.x, maxVertex.y, maxVertex.z};
+
+	std::wostringstream ss;
+	ss << minVertex.x << " " << minVertex.y << " " << minVertex.z << std::endl;
+	OutputDebugString(ss.str().c_str());
 }
 
 POS Entity::getCenter() const
 {
-	XMFLOAT3 center = {boundingboxmaxvertex.x - boundingboxminvertex.x /2, boundingboxmaxvertex.y - boundingboxminvertex.y / 2, boundingboxmaxvertex.z - boundingboxminvertex.z / 2};
+	POS center = {boundingboxmaxvertex.x - boundingboxminvertex.x /2, boundingboxmaxvertex.y - boundingboxminvertex.y / 2, boundingboxmaxvertex.z - boundingboxminvertex.z / 2};
 	center = { boundingboxminvertex.x + center.x, boundingboxminvertex.y + center.y, boundingboxminvertex.z + center.z };
 
 	return center;
 }
 
 //PhysHolder
-PhysHolder* Entity::GetPhysHolder() const
+PhysicsEntity* Entity::GetPhysHolder() const
 {
 	return pPhysHolder;
-}
-
-void Entity::decrementJump()
-{
-	if(--jumps < 0.0f)
-		return;
-	pPhysHolder->Jump();
-}
-
-void Entity::resetJump(bool j)
-{
-	if (j)
-		jumps = MAXJUMPS;
-}
-
-PhysHolder::PhysHolder()
-{
-	mVelocity = { 0.0f, 0.0f, 0.0f };
-	mIntent = { 0.0f, 0.0f, 0.0f };
-}
-
-POS PhysHolder::getVelocity() const
-{
-	return mVelocity;
-}
-
-void PhysHolder::setVelocity(POS velocity)
-{
-	mVelocity = velocity;
-}
-
-POS PhysHolder::getIntent() const
-{
-	return mIntent;
-}
-
-void PhysHolder::setIntent(POS intent)
-{
-	mIntent = intent;
-}
-
-void PhysHolder::Jump()
-{
-	mIntent.y = 1.0f;
 }

@@ -1,20 +1,74 @@
 #include "Physics.h"
 
-const float gravity = -1
-		  , jumpForce = 2;
-
-bool Physics::YPhysics(POS& pos, PhysHolder* e, float deltaTime)
+void Physics::XYZPhysics(POS& pos, PhysicsEntity* e, float deltaTime)
 {
 	POS velocity = e->getVelocity()
-	  , intent = e->getIntent();
+		, intent = e->getIntent();
+	float angle = e->getAngle();
 
-	Gravity(pos, velocity, deltaTime);
-	Jump(pos, velocity, intent, deltaTime);
-	bool resetJump = Ground(pos, velocity);
+	XZPhysics(pos, velocity, intent, angle, deltaTime);
+	e->resetJump(YPhysics(pos, velocity, intent, deltaTime));
 
 	e->setVelocity(velocity);
-	e->setIntent(intent);
-	return resetJump;
+	e->setIntent();
+}
+
+void Physics::XZPhysics(POS& pos, POS& velocity, POS& intent, float angle, float deltaTime)
+{
+	CalcAngleIntent(velocity, intent, angle);
+	SpeedLimit(velocity);
+	ChangePos(pos, velocity, deltaTime);
+}
+
+void Physics::CalcAngleIntent(POS& velocity, POS& intent, float angle)
+{
+	float z = intent.z * cos(angle) + intent.x * cos(angle + pi_h),
+		  x = intent.z * sin(angle) + intent.x * sin(angle + pi_h);
+
+	velocity.z += z * speedForce;
+	velocity.x += x * speedForce;
+}
+
+void Physics::SpeedLimit(POS& velocity)
+{
+	// z
+	if (velocity.z > friction)
+		velocity.z -= friction;
+	else if (velocity.z < -friction)
+		velocity.z += friction;
+	else
+		velocity.z = 0;
+
+	if (velocity.z > velocitycap)
+		velocity.z = velocitycap;
+	else if (velocity.z < -velocitycap)
+		velocity.z = -velocitycap;
+
+	// x
+	if (velocity.x > friction)
+		velocity.x -= friction;
+	else if (velocity.x < -friction)
+		velocity.x += friction;
+	else
+		velocity.x = 0;
+
+	if (velocity.x > velocitycap)
+		velocity.x = velocitycap;
+	else if (velocity.x < -velocitycap)
+		velocity.x = -velocitycap;
+}
+
+void Physics::ChangePos(POS& pos, POS& velocity, float deltaTime)
+{
+	pos.z += velocity.z * deltaTime;
+	pos.x += velocity.x * deltaTime;
+}
+
+bool Physics::YPhysics(POS& pos, POS& velocity, POS& intent, float deltaTime)
+{
+	Gravity(pos, velocity, deltaTime);
+	Jump(pos, velocity, intent, deltaTime);
+	return Ground(pos, velocity);
 }
 
 void Physics::Gravity(POS& pos, POS& velocity, float deltaTime)
@@ -29,7 +83,6 @@ void Physics::Jump(POS& pos, POS& velocity, POS& intent, float deltaTime)
 {
 	velocity.y += intent.y * jumpForce;
 	pos.y += velocity.y * deltaTime;
-	intent.y = 0.0f;
 }
 
 bool Physics::Ground(POS& pos, POS& velocity)
@@ -43,6 +96,17 @@ bool Physics::Ground(POS& pos, POS& velocity)
 
 bool Physics::collisionCheck(Entity& firstEntity, Entity& secondEntity)
 {
+	std::wostringstream ss;
+	//ss << XMVectorGetX(firstboxmin) << " " << XMVectorGetX(secondboxmin)<< std::endl;
+	//ss << "blockmin " << secondEntity.boundingboxminvertex.x << " " << secondEntity.boundingboxminvertex.y << " " << secondEntity.boundingboxminvertex.z << std::endl;
+	//ss << "Firstbox center"<< firstEntity.getCenter().x << " " << firstEntity.getCenter().y << " " << firstEntity.getCenter().z << std::endl;
+	//ss << "Secondbox center" << secondEntity.getCenter().x << " " << secondEntity.getCenter().y << " " << secondEntity.getCenter().z << std::endl;
+	ss << "Firstbox Vertex " << firstEntity.boundingboxminvertex.x << " " << firstEntity.boundingboxminvertex.y << " " << firstEntity.boundingboxminvertex.z << std::endl;
+	ss << "Secondbox Vertex " << secondEntity.boundingboxminvertex.x << " " << secondEntity.boundingboxminvertex.y << " " << secondEntity.boundingboxminvertex.z << std::endl;
+	//ss << "normal " <<normal.x << " " << normal.y << " " << normal.z << std::endl;
+	//ss << std::endl;
+	OutputDebugString(ss.str().c_str());
+
 	//Is obj1's max X greater than obj2's min X? If not, obj1 is to the LEFT of obj2
 	if (firstEntity.boundingboxmaxvertex.x > secondEntity.boundingboxminvertex.x) {
 		//Is obj1's min X less than obj2's max X? If not, obj1 is to the RIGHT of obj2
@@ -71,6 +135,7 @@ bool Physics::collisionCheck(Entity& firstEntity, Entity& secondEntity)
 
 void Physics::handleCollision(Entity& firstEntity, Entity& secondEntity)
 {
+	PhysicsEntity* first = firstEntity.GetPhysHolder();
 
 	XMFLOAT3 firstCenter = firstEntity.getCenter();
 	XMFLOAT3 secondCenter = secondEntity.getCenter();
@@ -90,8 +155,8 @@ void Physics::handleCollision(Entity& firstEntity, Entity& secondEntity)
 	ss << "initial z " << pos.z << std::endl;*/
 	//ss << std::endl;
 
-	XMFLOAT3 intMin = makeCeil(firstEntity.boundingboxminvertex, secondEntity.boundingboxminvertex);
-	XMFLOAT3 intMax = makeFloor(firstEntity.boundingboxmaxvertex, secondEntity.boundingboxmaxvertex);
+	XMFLOAT3 intMin = Physics::makeCeil(firstEntity.boundingboxminvertex, secondEntity.boundingboxminvertex);
+	XMFLOAT3 intMax = Physics::makeFloor(firstEntity.boundingboxmaxvertex, secondEntity.boundingboxmaxvertex);
 
 	//area of the intersection of the two boxes
 	XMFLOAT3 intersection = { intMax.x - intMin.x,intMax.y - intMin.y,intMax.z - intMin.z };
@@ -105,21 +170,40 @@ void Physics::handleCollision(Entity& firstEntity, Entity& secondEntity)
 	float sy = firstCenter.y < secondCenter.y ? -1.0f : 1.0f;
 	float sz = firstCenter.z < secondCenter.z ? -1.0f : 1.0f;
 
-	XMFLOAT3 pos = firstEntity.GetPosition3f();
+	//XMFLOAT3 pos = firstEntity.GetPosition3f();
 
 	//checking which face is colliding with and multiplying collision normal of face
 	if (ax <= ay && ax <= az) {
 		
-		pos.x += firstEntity.GetPhysHolder()->getVelocity().x * sx;
+		//pos.x += firstEntity.GetPhysHolder()->getVelocity().x * sx;
+		if (sx > 0) {
+			first->setXIntentPositive();
+		}
+		else {
+			first->setXIntentNegative();
+		}
 	}
 	else if (ay <= az) {
-		pos.y += firstEntity.GetPhysHolder()->getVelocity().y * sy;
+		//pos.y += firstEntity.GetPhysHolder()->getVelocity().y * sy;
 		//pos.y += velocity.y * sy
+		XMFLOAT3 vel = first->getVelocity();
+		vel.y = 0;
+		first->setVelocity(vel);
+		first->resetJump(true);
 	}
 	else {
-		pos.z += firstEntity.GetPhysHolder()->getVelocity().z * sz;
+		//pos.z += firstEntity.GetPhysHolder()->getVelocity().z * sz;
 		//pos.z += speed * sz;
+		if (sx > 0) {
+			first->setZIntentPositive();
+		}
+		else {
+			first->setZIntentNegative();
+		}
 	}
+
+	//firstEntity.SetPosition(pos);
+
 }
 
 XMFLOAT3 Physics::makeCeil(XMFLOAT3 first, XMFLOAT3 second)

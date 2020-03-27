@@ -1,28 +1,10 @@
 #pragma once
-#include "d3dUtil.h"
+
+#include "../Physics/PhysicsEntity.h"
 #include "MathHelper.h"
 using namespace DirectX;
 
-#define POS DirectX::XMFLOAT3
-#define DIRV DirectX::XMVECTOR
-
 const float MAXJUMPS = 1.0f;
-
-//Done quick and dirty, will be in 
-
-class PhysHolder {
-private:
-	POS mVelocity, mIntent;
-public:
-	PhysHolder();
-
-	POS getVelocity()const;
-	void setVelocity(POS velocity);
-	POS getIntent()const;
-	void setIntent(POS intent);
-
-	void Jump();
-};
 
 class Entity
 {
@@ -33,8 +15,9 @@ private:
 	POS mRight;
 	POS mUp;
 	POS mLook;
-	
-	PhysHolder* pPhysHolder = nullptr;
+
+	PhysicsEntity* pPhysHolder = nullptr;
+
 	float jumps = MAXJUMPS;
 
 public:
@@ -47,7 +30,6 @@ public:
 	XMFLOAT4X4 World = MathHelper::Identity4x4();
 	POS boundingboxminvertex;
 	POS boundingboxmaxvertex;
-
 	DIRV GetPosition()const;
 	POS GetPosition3f()const;
 	void SetPosition(float x, float y, float z);
@@ -62,13 +44,11 @@ public:
 	DIRV GetLook()const;
 	POS GetLook3f()const;
 
-	void calcAABB(std::vector<XMFLOAT3> boxVerts, XMFLOAT4X4& worldspace, XMVECTOR& boxmin, XMVECTOR& boxmax);
+	void calcAABB(std::vector<POS> boxVerts);
 	POS getCenter()const;
 
 	void walk(float d);
 	void Strafe(float d);
 
-	PhysHolder* GetPhysHolder()const;
-	void decrementJump();
-	void resetJump(bool j);
+	PhysicsEntity* GetPhysHolder()const;
 };

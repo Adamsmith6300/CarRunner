@@ -24,7 +24,7 @@ using namespace DirectX::PackedVector;
 const int gNumFrameResources = 3;
 
 //For Development only
-const bool isTopDown = false;
+const bool isTopDown = true;
 XMFLOAT3 topPos = { 0.0f, 20.0f, 0.0f };
 
 
@@ -227,11 +227,14 @@ bool App::Initialize()
 	//for creating the necessary vertices for bounding boxes
 	CreateBoundingVolumes(box.Vertices, boxBoundingVertPosArray, boxBoundingVertIndexArray);
 
-	BuildRenderItems();
 	right = { pos.x + 1, pos.y, pos.z };
 	up = { pos.x, pos.y + 1, pos.z };
 	look = { pos.x, pos.y, pos.z + 1 };
 	ent = Entity{ pos, right, up, look };
+	block = Entity();
+	BuildRenderItems();
+	
+	
     BuildFrameResources();
     BuildDescriptorHeaps();
     BuildConstantBufferViews();
@@ -385,6 +388,17 @@ void App::OnMouseMove(WPARAM btnState, int x, int y)
 
 bool App::collisionCheck(XMVECTOR& firstboxmin, XMVECTOR& firstboxmax, XMMATRIX& firstboxworld, XMVECTOR& secondboxmin, XMVECTOR& secondboxmax, XMMATRIX& secondboxworld)
 {
+
+	std::wostringstream ss;
+	//ss << XMVectorGetX(firstboxmin) << " " << XMVectorGetX(secondboxmin)<< std::endl;
+	//ss << "Firstbox "<< firstEntity.getCenter().x << " " << firstEntity.getCenter().y << " " << firstEntity.getCenter().z << std::endl;
+	//ss << "Secondbox " << secondEntity.getCenter().x << " " << secondEntity.getCenter().y << " " << secondEntity.getCenter().z << std::endl;
+	//ss << "Firstbox " << XMVectorGetX(firstboxmin) << " " << XMVectorGetY(firstboxmin) << " " << XMVectorGetZ(firstboxmin) << std::endl;
+	//ss << "Secondbox " << XMVectorGetX(secondboxmin) << " " << XMVectorGetY(secondboxmin) << " " << XMVectorGetZ(secondboxmin) << std::endl;
+	//ss << "normal " <<normal.x << " " << normal.y << " " << normal.z << std::endl;
+	//ss << std::endl;
+	OutputDebugString(ss.str().c_str());
+
 	//Is obj1's max X greater than obj2's min X? If not, obj1 is to the LEFT of obj2
 	if (XMVectorGetX(firstboxmax) > XMVectorGetX(secondboxmin)) {
 		//Is obj1's min X less than obj2's max X? If not, obj1 is to the RIGHT of obj2
@@ -593,54 +607,44 @@ XMFLOAT3 App::makeFloor(XMFLOAT3 first, XMFLOAT3 second)
 void App::OnKeyboardInput(const GameTimer& gt)
 {
     const float dt = gt.DeltaTime();
+	PhysicsEntity* entPhys = ent.GetPhysHolder();
+
     float boxSpeed = 3.0f * dt;
-	XMFLOAT3 tempVelocity = ent.GetPhysHolder()->getVelocity();
-		if (GetAsyncKeyState('W') & 0x8000) {
-			//tempVelocity.z += boxSpeed;
-			pos.z += boxSpeed;
-			//keyboardInput.z += boxSpeed;
-		}
-		if (GetAsyncKeyState('S') & 0x8000) {
-			//tempVelocity.z -= boxSpeed;
-			pos.z -= boxSpeed;
-			//keyboardInput.z -= boxSpeed;
-		}
-		if (GetAsyncKeyState('A') & 0x8000){
-			//tempVelocity.x -= boxSpeed;
-			pos.x -= boxSpeed;
-		//keyboardInput.x -= boxSpeed;
-		}
-		if (GetAsyncKeyState('D') & 0x8000) {
-			//tempVelocity.x += boxSpeed;
-			pos.x += boxSpeed;
-			//keyboardInput.x += boxSpeed;
-		}
-		if (GetAsyncKeyState('I') & 0x8000) {
-			pos.y += boxSpeed;
-			//keyboardInput.y += boxSpeed;
-		}
-		if (GetAsyncKeyState('K') & 0x8000) {
-			pos.y -= boxSpeed;
-			//keyboardInput.y -= boxSpeed;
-		}
 
-		ent.GetPhysHolder()->setVelocity(tempVelocity);
-
-		if (GetAsyncKeyState(' ') & 0x8000) {
-			ent.decrementJump();
-		}
-
-	//jumping stuff//
-		ent.resetJump(Physics::YPhysics(pos, ent.GetPhysHolder(), boxSpeed));
-		ent.SetPosition(pos);
+	if (GetAsyncKeyState('Q') & 0x8000) {
+		entPhys->setAngleNegative();
+	}
+	if (GetAsyncKeyState('E') & 0x8000) {
+		entPhys->setAnglePositive();
+		//keyboardInput.y -= boxSpeed;
+	}
+	if (GetAsyncKeyState('W') & 0x8000) {
+		entPhys->setZIntentPositive();
+		//keyboardInput.z += boxSpeed;
+	}
+	if (GetAsyncKeyState('S') & 0x8000) {
+		entPhys->setZIntentNegative();
+		//keyboardInput.z -= boxSpeed;
+	}
+	if (GetAsyncKeyState('A') & 0x8000){
+		entPhys->setXIntentNegative();
+	//keyboardInput.x -= boxSpeed;
+	}
+	if (GetAsyncKeyState('D') & 0x8000) {
+		entPhys->setXIntentPositive();
+		//keyboardInput.x += boxSpeed;
+	}
+	if (GetAsyncKeyState(' ') & 0x8000) {
+		entPhys->decrementJump();
+	}
 
 	//box translation//
 	XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
 	XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
 	XMMATRIX boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
+	XMMATRIX boxWorld = boxRotate * boxScale * boxOffset;
 
 	gameClient->sendToServer(pos.x, pos.y, pos.z);
-	XMMATRIX boxWorld = boxRotate * boxScale * boxOffset;
 	firstbox->Geo;
 
 	XMStoreFloat4x4(&ent.World,boxWorld);
@@ -648,31 +652,37 @@ void App::OnKeyboardInput(const GameTimer& gt)
 
 	//calculate new bounding box of first box
 	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
+	OutputDebugString(L"calculating movable box after moving\n");
+	ent.calcAABB(boxBoundingVertPosArray);
 
-	if (collisionCheck(firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex, XMLoadFloat4x4(&firstbox->World),
-		secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex, XMLoadFloat4x4(&secondbox->World))) {
+	if (Physics::collisionCheck(ent,block)) {
 		OutputDebugString(L"Collision\n");
 
 		//after entity class is fleshed out some of these parameters can be removed and only refer to the entity
-		handleCollision(firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex, pos,
-			secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex, boxSpeed, ent.GetPhysHolder()->getVelocity(), dt);
+		/*handleCollision(firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex, pos,
+			secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex, boxSpeed, ent.GetPhysHolder()->getVelocity(), dt);*/
 
-		ent.SetPosition(pos);
+		Physics::handleCollision(ent,block);
 
 		boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
 		boxWorld = boxRotate * boxScale * boxOffset;
 		XMStoreFloat4x4(&firstbox->World, boxWorld);
 
 		//calculate new bounding box of first box after collision
+		ent.calcAABB(boxBoundingVertPosArray);
 		calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
+	}
+	else {
+		OutputDebugString(L"No Collision\n");
 	}
 	
 	//formerly mboxritemmovable
     firstbox->NumFramesDirty++;
 
-	/*ent.resetJump(Physics::YPhysics(pos, ent.GetPhysHolder(), boxSpeed));
-    ent.SetPosition(pos);*/
-    if (!isTopDown) {
+	Physics::XYZPhysics(pos, entPhys, boxSpeed);
+    ent.SetPosition(pos);
+
+	if (!isTopDown) {
         mCamera.SetPosition(ent.getHPos());
     }
     mCamera.UpdateViewMatrix();
@@ -1043,11 +1053,15 @@ void App::BuildRenderItems()
     firstbox = boxRitem.get();
 	mAllRitems.push_back(std::move(boxRitem));
 
+	OutputDebugString(L"calcAABB of movable box\n");
+	ent.calcAABB(boxBoundingVertPosArray);
 	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
+	
 
 
     auto boxRitem2 = std::make_unique<RenderItem>();
     XMStoreFloat4x4(&boxRitem2->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box2Translation);
+	XMStoreFloat4x4(&block.World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box2Translation);
     boxRitem2->ObjCBIndex = 1;
     boxRitem2->Geo = mGeometries["shapeGeo"].get();
     boxRitem2->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1057,7 +1071,13 @@ void App::BuildRenderItems()
 	secondbox = boxRitem2.get();
     mAllRitems.push_back(std::move(boxRitem2));
 
-	calcAABB(boxBoundingVertPosArray, secondbox->World, secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex);
+	OutputDebugString(L"CalcAABB of block entity\n");
+	block.calcAABB(boxBoundingVertPosArray);
+	//calcAABB(boxBoundingVertPosArray, secondbox->World, secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex);
+
+	std::wostringstream ss;
+	ss << "blockmin " << block.boundingboxminvertex.x << " " << block.boundingboxminvertex.y << " " << block.boundingboxminvertex.z << std::endl;
+	OutputDebugString(ss.str().c_str());
 
     /*auto gridRitem = std::make_unique<RenderItem>();
     gridRitem->World = MathHelper::Identity4x4();
