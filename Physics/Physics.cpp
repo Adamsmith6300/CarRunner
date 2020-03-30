@@ -194,7 +194,7 @@ void Physics::handleCollision(Entity* firstEntity, Entity* secondEntity)
 	else {
 		//pos.z += firstEntity.GetPhysHolder()->getVelocity().z * sz;
 		//pos.z += speed * sz;
-		if (sx > 0) {
+		if (sz > 0) {
 			first->setZIntentPositive();
 		}
 		else {
