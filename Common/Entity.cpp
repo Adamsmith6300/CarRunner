@@ -118,10 +118,6 @@ void Entity::calcAABB(std::vector<POS> boxVerts)
 	//Store Bounding Box's min and max vertices
 	boundingboxminvertex = {minVertex.x, minVertex.y, minVertex.z};
 	boundingboxmaxvertex = {maxVertex.x, maxVertex.y, maxVertex.z};
-
-	//std::wostringstream ss;
-	//ss << minVertex.x << " " << minVertex.y << " " << minVertex.z << std::endl;
-	//OutputDebugString(ss.str().c_str());
 }
 
 POS Entity::getCenter() const
