@@ -66,6 +66,9 @@
     <ClCompile Include="..\..\Physics\PhysicsEntity.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\DDSTextureLoader.cpp">
+      <Filter>Source Files\Common</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FrameResource.h">
@@ -113,5 +116,14 @@
     <ClInclude Include="..\..\Physics\PhysicsEntity.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Common\DDSTextureLoader.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\..\Textures\bricks2.dds" />
+    <Image Include="..\..\Textures\grasscube1024.dds" />
+    <Image Include="..\..\Textures\tile.dds" />
+    <Image Include="..\..\Textures\white1x1.dds" />
   </ItemGroup>
 </Project>
