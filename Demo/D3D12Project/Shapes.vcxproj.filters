@@ -126,4 +126,7 @@
     <Image Include="..\..\Textures\tile.dds" />
     <Image Include="..\..\Textures\white1x1.dds" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="Models\semimodel.txt" />
+  </ItemGroup>
 </Project>

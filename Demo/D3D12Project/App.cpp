@@ -61,6 +61,7 @@ private:
     virtual void OnMouseMove(WPARAM btnState, int x, int y)override;
 
 	void OnKeyboardInput(const GameTimer& gt);
+	void App::MoveCars(const GameTimer& gt);
 	void AnimateMaterials(const GameTimer& gt);
 	void UpdateObjectCBs(const GameTimer& gt);
 	void UpdateMaterialBuffer(const GameTimer& gt);
@@ -79,12 +80,11 @@ private:
 
 	void LoadTextures();
     void BuildDescriptorHeaps();
-    void BuildConstantBufferViews();
     void BuildRootSignature();
     void BuildShadersAndInputLayout();
     void BuildShapeGeometry();
-	void BuildSkyBoxGeometry();
 	void BuildplatformGeometry();
+	void BuildTruckGeometry();
     void BuildPSOs();
     void BuildFrameResources();
 	void BuildMaterials();
@@ -113,6 +113,11 @@ private:
     std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
 
 	// List of all the render items.
+	//cbIndex 0 -> skybox
+	//cbIndex 1 -> player1
+	//cbIndex 2 -> player2
+	//cbIndex 3 -> grid
+	//cbIndex 4+ -> platforms/cars
 	std::vector<std::unique_ptr<RenderItem>> mAllRitems;
     RenderItem* mBoxItemMovable;
     XMFLOAT3 pos = { 0.0f, 0.0f, 0.0f };
@@ -129,9 +134,11 @@ private:
 	std::vector<DWORD> boxBoundingVertIndexArray;
 	GeometryGenerator::MeshData box;
 
+	UINT carsCBIndexStart = 0;
+	UINT carCount = 59;
+
 	// Render items divided by PSO.
 	std::vector<RenderItem*> mRitemLayer[(int)RenderLayer::Count];
-
 	UINT mSkyTexHeapIndex = 0;
     PassConstants mMainPassCB;
 
@@ -252,7 +259,7 @@ bool App::Initialize()
 	BuildDescriptorHeaps();
     BuildShadersAndInputLayout();
     BuildShapeGeometry();
-	//BuildSkyBoxGeometry();
+	BuildTruckGeometry();
 	BuildplatformGeometry();
 	BuildMaterials();
 	//for creating the necessary vertices for bounding boxes
@@ -307,6 +314,7 @@ void App::Update(const GameTimer& gt)
     }
 
 	AnimateMaterials(gt);
+	MoveCars(gt);
 	UpdateObjectCBs(gt);
 	UpdateMaterialBuffer(gt);
 	UpdateMainPassCB(gt);
@@ -685,6 +693,7 @@ void App::OnKeyboardInput(const GameTimer& gt)
 	}
 	if (GetAsyncKeyState(' ') & 0x8000) {
 		entPhys->decrementJump();
+		boxSpeed = 5.0f * dt;
 	}
 
 	//box translation//
@@ -739,6 +748,30 @@ void App::OnKeyboardInput(const GameTimer& gt)
     mCamera.UpdateViewMatrix();
 }
  
+void App::MoveCars(const GameTimer& gt) {
+	const float dt = gt.DeltaTime();
+	XMFLOAT3 mov = { 0.0f, 0.0f, 3.0f * dt };
+	for (auto& e : mAllRitems) {
+		if (e->ObjCBIndex >= carsCBIndexStart) {
+			XMMATRIX world = XMLoadFloat4x4(&e->World);
+			//XMMATRIX boxScale = XMMatrixScaling(0.5f, 0.5f, 0.5f);
+			XMMATRIX boxOffset = XMMatrixTranslation(mov.x, mov.y, mov.z);
+			XMMATRIX boxWorld = world * boxOffset;
+			if (e->World(3, 2) > (19 * 8.0f)) {
+				XMMATRIX transl = XMMatrixTranslation(5.0f, -0.8f, 0.0f);
+				if(e->ObjCBIndex >= carsCBIndexStart + 20)transl = XMMatrixTranslation(0.0f, -0.8f, 0.0f);
+				if(e->ObjCBIndex >= carsCBIndexStart + 39)transl = XMMatrixTranslation(-5.0f, -0.8f, 0.0f);
+				XMMATRIX resetPos = XMMatrixScaling(0.5f, 0.5f, 0.5f) * transl * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f);
+				XMStoreFloat4x4(&e->World, resetPos);
+			}
+			else {
+				XMStoreFloat4x4(&e->World, boxWorld);
+			}
+			e->NumFramesDirty++;
+		}
+	}
+}
+
 void App::AnimateMaterials(const GameTimer& gt)
 {
 }
@@ -1238,6 +1271,82 @@ void App::BuildplatformGeometry()
 	mGeometries[geo->Name] = std::move(geo);
 }
 
+void App::BuildTruckGeometry()
+{
+	std::ifstream fin("Models/car.txt");
+
+	if (!fin)
+	{
+		MessageBox(0, L"Models/car.txt not found.", 0, 0);
+		return;
+	}
+
+	UINT vcount = 0;
+	UINT tcount = 0;
+	std::string ignore;
+
+	fin >> ignore >> vcount;
+	fin >> ignore >> tcount;
+	fin >> ignore >> ignore >> ignore >> ignore;
+
+	std::vector<Vertex> vertices(vcount);
+	for (UINT i = 0; i < vcount; ++i)
+	{
+		fin >> vertices[i].Pos.x >> vertices[i].Pos.y >> vertices[i].Pos.z;
+		//fin >> vertices[i].TexC.x >> vertices[i].TexC.y;
+		fin >> vertices[i].Normal.x >> vertices[i].Normal.y >> vertices[i].Normal.z;
+	}
+
+	fin >> ignore;
+	fin >> ignore;
+	fin >> ignore;
+
+	std::vector<std::int32_t> indices(3 * tcount);
+	for (UINT i = 0; i < tcount; ++i)
+	{
+		fin >> indices[i * 3 + 0] >> indices[i * 3 + 1] >> indices[i * 3 + 2];
+	}
+
+	fin.close();
+
+	//
+	// Pack the indices of all the meshes into one index buffer.
+	//
+
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+
+	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::int32_t);
+
+	auto geo = std::make_unique<MeshGeometry>();
+	geo->Name = "semitruckGeo";
+
+	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+
+	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+
+	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
+
+	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
+
+	geo->VertexByteStride = sizeof(Vertex);
+	geo->VertexBufferByteSize = vbByteSize;
+	geo->IndexFormat = DXGI_FORMAT_R32_UINT;
+	geo->IndexBufferByteSize = ibByteSize;
+
+	SubmeshGeometry submesh;
+	submesh.IndexCount = (UINT)indices.size();
+	submesh.StartIndexLocation = 0;
+	submesh.BaseVertexLocation = 0;
+
+	geo->DrawArgs["semitruck"] = submesh;
+
+	mGeometries[geo->Name] = std::move(geo);
+}
+
 void App::BuildPSOs()
 {
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC opaquePsoDesc;
@@ -1440,48 +1549,48 @@ void App::BuildRenderItems()
 	mAllRitems.push_back(std::move(gridRitem));
 
 	
-
-	for (int i = 0; i < 20; ++i) {
+	carsCBIndexStart = objCBIndex;
+	for (int i = 0; i < carCount/3; ++i) {
 		auto platformRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(-5.0f, -0.6f, i*8.0f));
+		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(-5.0f, -0.8f, i*-8.0f) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
 		XMStoreFloat4x4(&platformRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 		platformRitem->ObjCBIndex = objCBIndex++;
 		platformRitem->Mat = mMaterials["bricks0"].get();
-		platformRitem->Geo = mGeometries["platformGeo"].get();
-		platformRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-		platformRitem->IndexCount = platformRitem->Geo->DrawArgs["platform"].IndexCount;
-		platformRitem->StartIndexLocation = platformRitem->Geo->DrawArgs["platform"].StartIndexLocation;
-		platformRitem->BaseVertexLocation = platformRitem->Geo->DrawArgs["platform"].BaseVertexLocation;
+		platformRitem->Geo = mGeometries["semitruckGeo"].get();
+		platformRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+		platformRitem->IndexCount = platformRitem->Geo->DrawArgs["semitruck"].IndexCount;
+		platformRitem->StartIndexLocation = platformRitem->Geo->DrawArgs["semitruck"].StartIndexLocation;
+		platformRitem->BaseVertexLocation = platformRitem->Geo->DrawArgs["semitruck"].BaseVertexLocation;
 		mRitemLayer[(int)RenderLayer::Opaque].push_back(platformRitem.get());
 		mAllRitems.push_back(std::move(platformRitem));
 	}
 
-	for (int i = 0; i < 19; ++i) {
+	for (int i = 0; i < carCount / 3; ++i) {
 		auto platformRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(0.0f, -0.6f, (i * 8.0f) + 4.0f));
+		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(0.0f, -0.8f, (i * -8.0f) - 4.0f) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
 		XMStoreFloat4x4(&platformRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 		platformRitem->ObjCBIndex = objCBIndex++;
 		platformRitem->Mat = mMaterials["bricks0"].get();
-		platformRitem->Geo = mGeometries["platformGeo"].get();
-		platformRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-		platformRitem->IndexCount = platformRitem->Geo->DrawArgs["platform"].IndexCount;
-		platformRitem->StartIndexLocation = platformRitem->Geo->DrawArgs["platform"].StartIndexLocation;
-		platformRitem->BaseVertexLocation = platformRitem->Geo->DrawArgs["platform"].BaseVertexLocation;
+		platformRitem->Geo = mGeometries["semitruckGeo"].get();
+		platformRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+		platformRitem->IndexCount = platformRitem->Geo->DrawArgs["semitruck"].IndexCount;
+		platformRitem->StartIndexLocation = platformRitem->Geo->DrawArgs["semitruck"].StartIndexLocation;
+		platformRitem->BaseVertexLocation = platformRitem->Geo->DrawArgs["semitruck"].BaseVertexLocation;
 		mRitemLayer[(int)RenderLayer::Opaque].push_back(platformRitem.get());
 		mAllRitems.push_back(std::move(platformRitem));
 	}
 
-	for (int i = 0; i < 20; ++i) {
+	for (int i = 0; i < carCount / 3; ++i) {
 		auto platformRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(5.0f, -0.6f, i * 8.0f));
+		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, -0.8f, i * -8.0f) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
 		XMStoreFloat4x4(&platformRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 		platformRitem->ObjCBIndex = objCBIndex++;
 		platformRitem->Mat = mMaterials["bricks0"].get();
-		platformRitem->Geo = mGeometries["platformGeo"].get();
-		platformRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-		platformRitem->IndexCount = platformRitem->Geo->DrawArgs["platform"].IndexCount;
-		platformRitem->StartIndexLocation = platformRitem->Geo->DrawArgs["platform"].StartIndexLocation;
-		platformRitem->BaseVertexLocation = platformRitem->Geo->DrawArgs["platform"].BaseVertexLocation;
+		platformRitem->Geo = mGeometries["semitruckGeo"].get();
+		platformRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+		platformRitem->IndexCount = platformRitem->Geo->DrawArgs["semitruck"].IndexCount;
+		platformRitem->StartIndexLocation = platformRitem->Geo->DrawArgs["semitruck"].StartIndexLocation;
+		platformRitem->BaseVertexLocation = platformRitem->Geo->DrawArgs["semitruck"].BaseVertexLocation;
 		mRitemLayer[(int)RenderLayer::Opaque].push_back(platformRitem.get());
 		mAllRitems.push_back(std::move(platformRitem));
 	}
