@@ -67,6 +67,8 @@ private:
 	void BuildEnt(string name);
 	Entity* FindEnt(string name);
 
+	void collision(string ent);
+
     void BuildDescriptorHeaps();
     void BuildConstantBufferViews();
     void BuildRootSignature();
@@ -280,14 +282,6 @@ void App::OnResize()
 void App::Update(const GameTimer& gt)
 {
     OnKeyboardInput(gt);
-
-	if (collisionCheck(firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex, XMLoadFloat4x4(&firstbox->World),
-		secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex, XMLoadFloat4x4(&secondbox->World))) {
-		//OutputDebugString(L"Collision\n");
-	}
-	else {
-		//OutputDebugString(L"No collision \n");
-	}
 
     // Cycle through the circular frame resource array.
     mCurrFrameResourceIndex = (mCurrFrameResourceIndex + 1) % gNumFrameResources;
@@ -635,6 +629,36 @@ Entity* App::FindEnt(string name) {
 	return ents.find(name)->second;
 }
  
+void App::collision(string ent) {
+	
+	std::map<string, Entity*>::iterator it = ents.begin();
+	while (it != ents.end()) {
+
+		OutputDebugStringA(it->first.c_str());
+		OutputDebugString(L"\n");
+
+		if (Physics::collisionCheck(FindEnt(ent), FindEnt(it->first)) && ent != it->first) {
+			
+			Physics::handleCollision(FindEnt(ent), FindEnt(it->first));
+
+			XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
+			XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
+			XMMATRIX boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
+			XMMATRIX boxWorld = boxRotate * boxScale * boxOffset;
+
+			XMStoreFloat4x4(&firstbox->World, boxWorld);
+			XMStoreFloat4x4(&FindEnt(ent)->World, boxWorld);
+
+			FindEnt(ent)->calcAABB(boxBoundingVertPosArray);
+			calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
+		}
+		else {
+			//OutputDebugString(L"No collision \n");
+		}
+		it++;
+	}
+}
+
 void App::OnKeyboardInput(const GameTimer& gt)
 {
     const float dt = gt.DeltaTime();
@@ -681,27 +705,26 @@ void App::OnKeyboardInput(const GameTimer& gt)
 	XMStoreFloat4x4(&FindEnt("player")->World,boxWorld);
 	XMStoreFloat4x4(&firstbox->World, boxWorld);
 
-	//calculate new bounding box of first box
-	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
-	OutputDebugString(L"calculating movable box after moving\n");
 	FindEnt("player")->calcAABB(boxBoundingVertPosArray);
 
-	if (Physics::collisionCheck(FindEnt("player"),FindEnt("block"))){
-		OutputDebugString(L"Collision\n");
+	//calculate new bounding box of first box
+	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
 
-		Physics::handleCollision(FindEnt("player"),FindEnt("block"));
+	collision("player");
 
-		boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
-		boxWorld = boxRotate * boxScale * boxOffset;
-		XMStoreFloat4x4(&firstbox->World, boxWorld);
+	//if (Physics::collisionCheck(FindEnt("player"),FindEnt("block"))){
+	//	OutputDebugString(L"Collision\n");
 
-		//calculate new bounding box of first box after collision
-		FindEnt("player")->calcAABB(boxBoundingVertPosArray);
-		calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
-	}
-	else {
-		OutputDebugString(L"No Collision\n");
-	}
+	//	Physics::handleCollision(FindEnt("player"),FindEnt("block"));
+
+	//	boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
+	//	boxWorld = boxRotate * boxScale * boxOffset;
+	//	XMStoreFloat4x4(&firstbox->World, boxWorld);
+
+	//	//calculate new bounding box of first box after collision
+	//	FindEnt("player")->calcAABB(boxBoundingVertPosArray);
+	//	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
+	//}
 	
 	//formerly mboxritemmovable
     firstbox->NumFramesDirty++;
@@ -1208,7 +1231,7 @@ void App::BuildRenderItems()
     firstbox = boxRitem.get();
 	mAllRitems.push_back(std::move(boxRitem));
 
-	OutputDebugString(L"calcAABB of movable box\n");
+	//OutputDebugString(L"calcAABB of movable box\n");
 	FindEnt("player")->calcAABB(boxBoundingVertPosArray);
 	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
 	
@@ -1228,7 +1251,7 @@ void App::BuildRenderItems()
 	gameClient->setPlayer(boxRitem2.get());
     mAllRitems.push_back(std::move(boxRitem2));
 
-	OutputDebugString(L"CalcAABB of block entity\n");
+	//OutputDebugString(L"CalcAABB of block entity\n");
 	FindEnt("block")->calcAABB(boxBoundingVertPosArray);
 	calcAABB(boxBoundingVertPosArray, secondbox->World, secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex);
 
@@ -1257,6 +1280,7 @@ void App::BuildRenderItems()
 	mAllRitems.push_back(std::move(skyBoxRitem));
 
 	for (int i = 0; i < 10; ++i) {
+
 		auto platformRitem = std::make_unique<RenderItem>();
 		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(-5.0f, 0.0f, i*5.0f));
 		platformRitem->ObjCBIndex = objCBIndex++;
@@ -1266,6 +1290,15 @@ void App::BuildRenderItems()
 		platformRitem->StartIndexLocation = platformRitem->Geo->DrawArgs["platform"].StartIndexLocation;
 		platformRitem->BaseVertexLocation = platformRitem->Geo->DrawArgs["platform"].BaseVertexLocation;
 		mAllRitems.push_back(std::move(platformRitem));
+		
+		//code needed to check for collision between entities
+		string entname = "block" + std::to_string(i);
+		OutputDebugStringA(entname.c_str());
+		OutputDebugString(L"\n");
+		BuildEnt(entname);
+		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(-5.0f, 0.0f, i * 5.0f));
+		FindEnt(entname)->calcAABB(boxBoundingVertPosArray);
+
 	}
 	
 

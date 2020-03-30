@@ -101,8 +101,8 @@ bool Physics::collisionCheck(Entity* firstEntity, Entity* secondEntity)
 	//ss << "blockmin " << secondEntity.boundingboxminvertex.x << " " << secondEntity.boundingboxminvertex.y << " " << secondEntity.boundingboxminvertex.z << std::endl;
 	//ss << "Firstbox center"<< firstEntity.getCenter().x << " " << firstEntity.getCenter().y << " " << firstEntity.getCenter().z << std::endl;
 	//ss << "Secondbox center" << secondEntity.getCenter().x << " " << secondEntity.getCenter().y << " " << secondEntity.getCenter().z << std::endl;
-	ss << "Firstbox Vertex " << firstEntity->boundingboxminvertex.x << " " << firstEntity->boundingboxminvertex.y << " " << firstEntity->boundingboxminvertex.z << std::endl;
-	ss << "Secondbox Vertex " << secondEntity->boundingboxminvertex.x << " " << secondEntity->boundingboxminvertex.y << " " << secondEntity->boundingboxminvertex.z << std::endl;
+	//ss << "Firstbox Vertex " << firstEntity->boundingboxminvertex.x << " " << firstEntity->boundingboxminvertex.y << " " << firstEntity->boundingboxminvertex.z << std::endl;
+	//ss << "Secondbox Vertex " << secondEntity->boundingboxminvertex.x << " " << secondEntity->boundingboxminvertex.y << " " << secondEntity->boundingboxminvertex.z << std::endl;
 	//ss << "normal " <<normal.x << " " << normal.y << " " << normal.z << std::endl;
 	//ss << std::endl;
 	OutputDebugString(ss.str().c_str());
