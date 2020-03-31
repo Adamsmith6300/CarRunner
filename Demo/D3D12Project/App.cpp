@@ -307,7 +307,7 @@ void App::Update(const GameTimer& gt)
     }
 
 	AnimateMaterials(gt);
-	//MoveCars(gt);
+	MoveCars(gt);
 	UpdateObjectCBs(gt);
 	UpdateMaterialBuffer(gt);
 	UpdateMainPassCB(gt);
@@ -689,7 +689,7 @@ void App::OnKeyboardInput(const GameTimer& gt)
     const float dt = gt.DeltaTime();
 	PhysicsEntity* entPhys = FindEnt("player")->GetPhysHolder();
 
-    float boxSpeed = 17.0f * dt;
+    float boxSpeed = 27.0f * dt;
 
 	if (GetAsyncKeyState('Q') & 0x8000) {
 		entPhys->setAngleNegative();
@@ -778,7 +778,7 @@ void App::MoveCars(const GameTimer& gt) {
 			//XMMATRIX boxScale = XMMatrixScaling(0.5f, 0.5f, 0.5f);
 			XMMATRIX boxOffset = XMMatrixTranslation(mov.x, mov.y, mov.z);
 			XMMATRIX boxWorld = world * boxOffset;
-			if (e->World(3, 2) > (19 * 8.0f)) {
+			if (e->World(3, 2) > (20 * 8.0f)) {
 				XMMATRIX transl = XMMatrixTranslation(5.0f, -0.8f, 0.0f);
 				if(e->ObjCBIndex >= carsCBIndexStart + 20)transl = XMMatrixTranslation(0.0f, -0.8f, 0.0f);
 				if(e->ObjCBIndex >= carsCBIndexStart + 39)transl = XMMatrixTranslation(-5.0f, -0.8f, 0.0f);
@@ -879,7 +879,16 @@ void App::UpdateMainPassCB(const GameTimer& gt)
 	mMainPassCB.Lights[1].Strength = { 0.3f, 0.3f, 0.3f };
 	mMainPassCB.Lights[2].Direction = { 0.0f, -0.707f, -0.707f };
 	mMainPassCB.Lights[2].Strength = { 0.15f, 0.15f, 0.15f };
-
+	//mMainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
+	for (int i = 3; i < 6; ++i) {
+		//mMainPassCB.Lights[i].Direction = { 0.0f, -5.0f, -10.0f };
+		mMainPassCB.Lights[i].Strength = { 1.0f, 0.0f, 0.0f };
+		mMainPassCB.Lights[i].Position = { ((i-3)*5.0f)-5.0f, 1.0f, 2.6f*carCount};
+		//mMainPassCB.Lights[i].FalloffStart = 0.5f;
+		mMainPassCB.Lights[i].FalloffEnd = 20.0f;
+		//mMainPassCB.Lights[i].SpotPower = 15.0f;
+	}
+	
 	auto currPassCB = mCurrFrameResource->PassCB.get();
 	currPassCB->CopyData(0, mMainPassCB);
 }
@@ -899,7 +908,7 @@ void App::LoadTextures()
 	{
 		L"../../Textures/purplegems.dds",
 		L"../../Textures/tile.dds",
-		L"../../Textures/white1x1.dds",
+		L"../../Textures/concreteroad.dds",
 		L"../../Textures/snowcube1024.dds"
 	};
 
@@ -1063,7 +1072,9 @@ void App::BuildShapeGeometry()
 	box = geoGen.CreateBox(1.5f, 0.5f, 1.5f, 3);
 	GeometryGenerator::MeshData box2 = geoGen.CreateBox(1.5f, 0.5f, 1.5f, 3);
 	GeometryGenerator::MeshData grid = geoGen.CreateGrid(15.0f, 5.0f, 30, 20);
+	GeometryGenerator::MeshData tunnel = geoGen.CreateTunnel(15.0f, 2.2f, 10.0f, 3);
 	GeometryGenerator::MeshData sphere = geoGen.CreateSphere(0.5f, 20, 20);
+
 	//
 	// We are concatenating all the geometry into one big vertex/index buffer.  So
 	// define the regions in the buffer each submesh covers.
@@ -1073,13 +1084,15 @@ void App::BuildShapeGeometry()
 	UINT boxVertexOffset = 0;
 	UINT box2VertexOffset = (UINT)box.Vertices.size();
 	UINT gridVertexOffset = box2VertexOffset+ (UINT)box2.Vertices.size();
-	UINT sphereVertexOffset = gridVertexOffset + (UINT)grid.Vertices.size();
+	UINT tunnelVertexOffset = gridVertexOffset+ (UINT)grid.Vertices.size();
+	UINT sphereVertexOffset = tunnelVertexOffset + (UINT)tunnel.Vertices.size();
 
 	// Cache the starting index for each object in the concatenated index buffer.
 	UINT boxIndexOffset = 0;
 	UINT box2IndexOffset = (UINT)box.Indices32.size();
 	UINT gridIndexOffset = box2IndexOffset+(UINT)box2.Indices32.size();
-	UINT sphereIndexOffset = gridIndexOffset + (UINT)grid.Indices32.size();
+	UINT tunnelIndexOffset = gridIndexOffset+(UINT)grid.Indices32.size();
+	UINT sphereIndexOffset = tunnelIndexOffset + (UINT)tunnel.Indices32.size();
     // Define the SubmeshGeometry that cover different 
     // regions of the vertex/index buffers.
 
@@ -1098,6 +1111,11 @@ void App::BuildShapeGeometry()
 	gridSubmesh.StartIndexLocation = gridIndexOffset;
 	gridSubmesh.BaseVertexLocation = gridVertexOffset;
 
+	SubmeshGeometry tunnelSubmesh;
+	tunnelSubmesh.IndexCount = (UINT)tunnel.Indices32.size();
+	tunnelSubmesh.StartIndexLocation = tunnelIndexOffset;
+	tunnelSubmesh.BaseVertexLocation = tunnelVertexOffset;
+
 	SubmeshGeometry sphereSubmesh;
 	sphereSubmesh.IndexCount = (UINT)sphere.Indices32.size();
 	sphereSubmesh.StartIndexLocation = sphereIndexOffset;
@@ -1105,7 +1123,7 @@ void App::BuildShapeGeometry()
 
     auto totalVertexCount =
         box.Vertices.size() + box2.Vertices.size() +
-        grid.Vertices.size() + sphere.Vertices.size();
+        grid.Vertices.size() + tunnel.Vertices.size() + sphere.Vertices.size();
 
 	std::vector<Vertex> vertices(totalVertexCount);
 
@@ -1123,14 +1141,18 @@ void App::BuildShapeGeometry()
 		vertices[k].Normal = box2.Vertices[i].Normal;
 		vertices[k].TexC = box2.Vertices[i].TexC;
     }
-
 	for(size_t i = 0; i < grid.Vertices.size(); ++i, ++k)
 	{
 		vertices[k].Pos = grid.Vertices[i].Position;
 		vertices[k].Normal = grid.Vertices[i].Normal;
 		vertices[k].TexC = grid.Vertices[i].TexC;
 	}
-
+	for (size_t i = 0; i < tunnel.Vertices.size(); ++i, ++k)
+	{
+		vertices[k].Pos = tunnel.Vertices[i].Position;
+		vertices[k].Normal = tunnel.Vertices[i].Normal;
+		vertices[k].TexC = tunnel.Vertices[i].TexC;
+	}
 	for (size_t i = 0; i < sphere.Vertices.size(); ++i, ++k)
 	{
 		vertices[k].Pos = sphere.Vertices[i].Position;
@@ -1143,6 +1165,7 @@ void App::BuildShapeGeometry()
 	indices.insert(indices.end(), std::begin(box.GetIndices16()), std::end(box.GetIndices16()));
 	indices.insert(indices.end(), std::begin(box2.GetIndices16()), std::end(box2.GetIndices16()));
 	indices.insert(indices.end(), std::begin(grid.GetIndices16()), std::end(grid.GetIndices16()));
+	indices.insert(indices.end(), std::begin(tunnel.GetIndices16()), std::end(tunnel.GetIndices16()));
 	indices.insert(indices.end(), std::begin(sphere.GetIndices16()), std::end(sphere.GetIndices16()));
 
     const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
@@ -1171,6 +1194,7 @@ void App::BuildShapeGeometry()
 	geo->DrawArgs["box"] = boxSubmesh;
 	geo->DrawArgs["box2"] = box2Submesh;
 	geo->DrawArgs["grid"] = gridSubmesh;
+	geo->DrawArgs["tunnel"] = tunnelSubmesh;
 	geo->DrawArgs["sphere"] = sphereSubmesh;
 
 	mGeometries[geo->Name] = std::move(geo);
@@ -1389,6 +1413,7 @@ void App::BuildPSOs()
 		mShaders["opaquePS"]->GetBufferSize()
 	};
 	opaquePsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	opaquePsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 	opaquePsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	opaquePsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 	opaquePsoDesc.SampleMask = UINT_MAX;
@@ -1449,17 +1474,17 @@ void App::BuildMaterials()
 	tile0->Name = "tile0";
 	tile0->MatCBIndex = 1;
 	tile0->DiffuseSrvHeapIndex = 1;
-	tile0->DiffuseAlbedo = XMFLOAT4(0.9f, 0.9f, 0.9f, 1.0f);
+	tile0->DiffuseAlbedo = XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f);
 	tile0->FresnelR0 = XMFLOAT3(0.2f, 0.2f, 0.2f);
-	tile0->Roughness = 0.1f;
+	tile0->Roughness = 1.0f;
 
 	auto mirror0 = std::make_unique<Material>();
 	mirror0->Name = "mirror0";
 	mirror0->MatCBIndex = 2;
 	mirror0->DiffuseSrvHeapIndex = 2;
-	mirror0->DiffuseAlbedo = XMFLOAT4(0.0f, 0.0f, 0.1f, 1.0f);
-	mirror0->FresnelR0 = XMFLOAT3(0.98f, 0.97f, 0.95f);
-	mirror0->Roughness = 0.1f;
+	mirror0->DiffuseAlbedo = XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f);
+	mirror0->FresnelR0 = XMFLOAT3(0.2f, 0.2f, 0.2f);
+	mirror0->Roughness = 1.0f;
 
 	auto skullMat = std::make_unique<Material>();
 	skullMat->Name = "skullMat";
@@ -1557,41 +1582,69 @@ void App::BuildRenderItems()
 	//ss << "blockmin " << block.boundingboxminvertex.x << " " << block.boundingboxminvertex.y << " " << block.boundingboxminvertex.z << std::endl;
 	//OutputDebugString(ss.str().c_str());
 
-    auto gridRitem = std::make_unique<RenderItem>();
-	gridRitem->World = MathHelper::Identity4x4();
-	XMStoreFloat4x4(&gridRitem->TexTransform, XMMatrixScaling(8.0f, 8.0f, 1.0f));
-	gridRitem->ObjCBIndex = objCBIndex++;
-	gridRitem->Mat = mMaterials["tile0"].get();
-	gridRitem->Geo = mGeometries["shapeGeo"].get();
-	gridRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-    gridRitem->IndexCount = gridRitem->Geo->DrawArgs["grid"].IndexCount;
-    gridRitem->StartIndexLocation = gridRitem->Geo->DrawArgs["grid"].StartIndexLocation;
-    gridRitem->BaseVertexLocation = gridRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
-	mRitemLayer[(int)RenderLayer::Opaque].push_back(gridRitem.get());
-	mAllRitems.push_back(std::move(gridRitem));
+    auto startTunnelRitem = std::make_unique<RenderItem>();
+	startTunnelRitem->World = MathHelper::Identity4x4();
+	XMStoreFloat4x4(&startTunnelRitem->World, XMMatrixTranslation(0.0f, -1.1f, 0.0f));
+	XMStoreFloat4x4(&startTunnelRitem->TexTransform, XMMatrixScaling(5.0f, 5.0f, 5.0f));
+	startTunnelRitem->ObjCBIndex = objCBIndex++;
+	startTunnelRitem->Mat = mMaterials["tile0"].get();
+	startTunnelRitem->Geo = mGeometries["shapeGeo"].get();
+	startTunnelRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	startTunnelRitem->IndexCount = startTunnelRitem->Geo->DrawArgs["tunnel"].IndexCount;
+	startTunnelRitem->StartIndexLocation = startTunnelRitem->Geo->DrawArgs["tunnel"].StartIndexLocation;
+	startTunnelRitem->BaseVertexLocation = startTunnelRitem->Geo->DrawArgs["tunnel"].BaseVertexLocation;
+	mRitemLayer[(int)RenderLayer::Opaque].push_back(startTunnelRitem.get());
+	mAllRitems.push_back(std::move(startTunnelRitem));
+
+	auto roadRitem = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&roadRitem->World, XMMatrixScaling(1.0f, 1.0f, 32.0f) * XMMatrixTranslation(0.0f, -2.0f, 80.0f));
+	XMStoreFloat4x4(&roadRitem->TexTransform, XMMatrixScaling(1.0f, 2.0f, 1.0f) * XMMatrixRotationRollPitchYaw(0.0f, 0.0f, 3.14f/2));
+	roadRitem->ObjCBIndex = objCBIndex++;
+	roadRitem->Mat = mMaterials["mirror0"].get();
+	roadRitem->Geo = mGeometries["shapeGeo"].get();
+	roadRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	roadRitem->IndexCount = roadRitem->Geo->DrawArgs["grid"].IndexCount;
+	roadRitem->StartIndexLocation = roadRitem->Geo->DrawArgs["grid"].StartIndexLocation;
+	roadRitem->BaseVertexLocation = roadRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
+	mRitemLayer[(int)RenderLayer::Opaque].push_back(roadRitem.get());
+	mAllRitems.push_back(std::move(roadRitem));
+
+	auto endTunnelRitem = std::make_unique<RenderItem>();
+	endTunnelRitem->World = MathHelper::Identity4x4();
+	XMStoreFloat4x4(&endTunnelRitem->World, XMMatrixTranslation(0.0f, -1.1f, -2.7f*carCount)* XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
+	//XMStoreFloat4x4(&startTunnelRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
+	endTunnelRitem->ObjCBIndex = objCBIndex++;
+	endTunnelRitem->Mat = mMaterials["tile0"].get();
+	endTunnelRitem->Geo = mGeometries["shapeGeo"].get();
+	endTunnelRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	endTunnelRitem->IndexCount = endTunnelRitem->Geo->DrawArgs["tunnel"].IndexCount;
+	endTunnelRitem->StartIndexLocation = endTunnelRitem->Geo->DrawArgs["tunnel"].StartIndexLocation;
+	endTunnelRitem->BaseVertexLocation = endTunnelRitem->Geo->DrawArgs["tunnel"].BaseVertexLocation;
+	mRitemLayer[(int)RenderLayer::Opaque].push_back(endTunnelRitem.get());
+	mAllRitems.push_back(std::move(endTunnelRitem));
 
 	carsCBIndexStart = objCBIndex;
 	for (int i = 0; i < carCount/3; ++i) {
 		auto platformRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(-5.0f, 0.0f, i*8.0f) /** XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f)*/);
+		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(-5.0f, -0.8f, (i * -8.0f)) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
 		XMStoreFloat4x4(&platformRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 		platformRitem->ObjCBIndex = objCBIndex++;
 		platformRitem->Mat = mMaterials["bricks0"].get();
-		platformRitem->Geo = mGeometries["platformGeo"].get();
+		platformRitem->Geo = mGeometries["semitruckGeo"].get();
 		platformRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-		platformRitem->IndexCount = platformRitem->Geo->DrawArgs["platform"].IndexCount;
-		platformRitem->StartIndexLocation = platformRitem->Geo->DrawArgs["platform"].StartIndexLocation;
-		platformRitem->BaseVertexLocation = platformRitem->Geo->DrawArgs["platform"].BaseVertexLocation;
+		platformRitem->IndexCount = platformRitem->Geo->DrawArgs["semitruck"].IndexCount;
+		platformRitem->StartIndexLocation = platformRitem->Geo->DrawArgs["semitruck"].StartIndexLocation;
+		platformRitem->BaseVertexLocation = platformRitem->Geo->DrawArgs["semitruck"].BaseVertexLocation;
 		mRitemLayer[(int)RenderLayer::Opaque].push_back(platformRitem.get());
 		mAllRitems.push_back(std::move(platformRitem));
 		
 		//code needed to check for collision between entities
-		string entname = "block" + std::to_string(i);
-		//OutputDebugStringA(entname.c_str());
-		//OutputDebugString(L"\n");
-		BuildEnt(entname);
-		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(-5.0f, -0.8f, i * -8.0f) /** XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f)*/);
-		FindEnt(entname)->calcAABB(boxBoundingVertPosArray);
+		//string entname = "block" + std::to_string(i);
+		////OutputDebugStringA(entname.c_str());
+		////OutputDebugString(L"\n");
+		//BuildEnt(entname);
+		//XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(-5.0f, -0.8f, i * -8.0f) /** XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f)*/);
+		//FindEnt(entname)->calcAABB(boxBoundingVertPosArray);
 
 	}
 
@@ -1609,12 +1662,12 @@ void App::BuildRenderItems()
 		mRitemLayer[(int)RenderLayer::Opaque].push_back(platformRitem.get());
 		mAllRitems.push_back(std::move(platformRitem));
 		//code needed to check for collision between entities
-		string entname = "block" + std::to_string(i+(carCount / 3));
-		//OutputDebugStringA(entname.c_str());
-		//OutputDebugString(L"\n");
-		BuildEnt(entname);
-		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(0.0f, -0.8f, (i * -8.0f) - 4.0f) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
-		FindEnt(entname)->calcAABB(boxBoundingVertPosArray);
+		//string entname = "block" + std::to_string(i+(carCount / 3));
+		////OutputDebugStringA(entname.c_str());
+		////OutputDebugString(L"\n");
+		//BuildEnt(entname);
+		//XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(0.0f, -0.8f, (i * -8.0f) - 4.0f) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
+		//FindEnt(entname)->calcAABB(boxBoundingVertPosArray);
 
 	}
 
@@ -1632,12 +1685,12 @@ void App::BuildRenderItems()
 		mRitemLayer[(int)RenderLayer::Opaque].push_back(platformRitem.get());
 		mAllRitems.push_back(std::move(platformRitem));
 		//code needed to check for collision between entities
-		string entname = "block" + std::to_string(i + (2 * carCount / 3));
-		//OutputDebugStringA(entname.c_str());
-		//OutputDebugString(L"\n");
-		BuildEnt(entname);
-		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, -0.8f, i * -8.0f) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
-		FindEnt(entname)->calcAABB(boxBoundingVertPosArray);
+		//string entname = "block" + std::to_string(i + (2 * carCount / 3));
+		////OutputDebugStringA(entname.c_str());
+		////OutputDebugString(L"\n");
+		//BuildEnt(entname);
+		//XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, -0.8f, i * -8.0f) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
+		//FindEnt(entname)->calcAABB(boxBoundingVertPosArray);
 	}
 }
 
