@@ -96,7 +96,7 @@ bool Physics::Ground(POS& pos, POS& velocity)
 
 bool Physics::collisionCheck(Entity* firstEntity, Entity* secondEntity)
 {
-	std::wostringstream ss;
+	//std::wostringstream ss;
 	//ss << XMVectorGetX(firstboxmin) << " " << XMVectorGetX(secondboxmin)<< std::endl;
 	//ss << "blockmin " << secondEntity.boundingboxminvertex.x << " " << secondEntity.boundingboxminvertex.y << " " << secondEntity.boundingboxminvertex.z << std::endl;
 	//ss << "Firstbox center"<< firstEntity.getCenter().x << " " << firstEntity.getCenter().y << " " << firstEntity.getCenter().z << std::endl;
@@ -105,7 +105,7 @@ bool Physics::collisionCheck(Entity* firstEntity, Entity* secondEntity)
 	//ss << "Secondbox Vertex " << secondEntity->boundingboxminvertex.x << " " << secondEntity->boundingboxminvertex.y << " " << secondEntity->boundingboxminvertex.z << std::endl;
 	//ss << "normal " <<normal.x << " " << normal.y << " " << normal.z << std::endl;
 	//ss << std::endl;
-	OutputDebugString(ss.str().c_str());
+	//OutputDebugString(ss.str().c_str());
 
 	//Is obj1's max X greater than obj2's min X? If not, obj1 is to the LEFT of obj2
 	if (firstEntity->boundingboxmaxvertex.x > secondEntity->boundingboxminvertex.x) {
@@ -149,7 +149,7 @@ void Physics::handleCollision(Entity* firstEntity, Entity* secondEntity)
 	ss << std::endl;
 	OutputDebugString(ss.str().c_str());*/
 
-	std::wostringstream ss;
+	//std::wostringstream ss;
 	/*ss << "initial x " << pos.x << std::endl;
 	ss << "initial y " << pos.y << std::endl;
 	ss << "initial z " << pos.z << std::endl;*/
