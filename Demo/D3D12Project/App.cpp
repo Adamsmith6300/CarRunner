@@ -67,7 +67,7 @@ private:
 	void BuildEnt(string name);
 	Entity* FindEnt(string name);
 
-	void collision(string ent);
+	void collision(string ent,XMFLOAT3& pos, float dt);
 
     void BuildDescriptorHeaps();
     void BuildConstantBufferViews();
@@ -629,17 +629,17 @@ Entity* App::FindEnt(string name) {
 	return ents.find(name)->second;
 }
  
-void App::collision(string ent) {
+void App::collision(string ent, XMFLOAT3& pos, float dt) {
 	
 	std::map<string, Entity*>::iterator it = ents.begin();
 	while (it != ents.end()) {
 
-		OutputDebugStringA(it->first.c_str());
-		OutputDebugString(L"\n");
+		//OutputDebugStringA(it->first.c_str());
+		//OutputDebugString(L"\n");
 
 		if (Physics::collisionCheck(FindEnt(ent), FindEnt(it->first)) && ent != it->first) {
 			
-			Physics::handleCollision(FindEnt(ent), FindEnt(it->first));
+			Physics::handleCollision(FindEnt(ent), FindEnt(it->first), pos,dt);
 
 			XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
 			XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
@@ -710,34 +710,20 @@ void App::OnKeyboardInput(const GameTimer& gt)
 	//calculate new bounding box of first box
 	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
 
-	collision("player");
+	Physics::XYZPhysics(pos, entPhys, boxSpeed);
+	FindEnt("player")->SetPosition(pos);
 
-	//if (Physics::collisionCheck(FindEnt("player"),FindEnt("block"))){
-	//	OutputDebugString(L"Collision\n");
+	collision("player", pos, dt);
+	FindEnt("player")->SetPosition(pos);
 
-	//	Physics::handleCollision(FindEnt("player"),FindEnt("block"));
-
-	//	boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
-	//	boxWorld = boxRotate * boxScale * boxOffset;
-	//	XMStoreFloat4x4(&firstbox->World, boxWorld);
-
-	//	//calculate new bounding box of first box after collision
-	//	FindEnt("player")->calcAABB(boxBoundingVertPosArray);
-	//	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
-	//}
-	
 	//formerly mboxritemmovable
     firstbox->NumFramesDirty++;
-
-	Physics::XYZPhysics(pos, entPhys, boxSpeed);
-
     /*ent.SetPosition(pos);
 
 	if (!isTopDown) {
 		mCamera.SetPosition(ent.getHPos());
 	}*/
 
-	FindEnt("player")->SetPosition(pos);
     if (!isTopDown) {
         mCamera.SetPosition(FindEnt("player")->getHPos());
     }
