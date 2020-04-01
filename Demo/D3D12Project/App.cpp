@@ -31,6 +31,9 @@ const int gNumFrameResources = 3;
 const bool isTopDown = true;
 XMFLOAT3 topPos = { 0.0f, 20.0f, 0.0f };
 
+//For timer reset
+int lastDirX = 0,lastDirZ = 0;
+float countDownX = 0.0f, countDownZ = 0.0f;
 
 class App : public D3DApp
 {
@@ -663,34 +666,92 @@ void App::OnKeyboardInput(const GameTimer& gt)
 {
     const float dt = gt.DeltaTime();
 	PhysicsEntity* entPhys = FindEnt("player")->GetPhysHolder();
-
-    float boxSpeed = 3.0f * dt;
-
+		
+    float boxSpeedX = 3.0f * dt, 
+		  boxSpeedZ = 3.0f * dt;
+	int dirX = 0,dirZ = 0;
+	
 	if (GetAsyncKeyState('Q') & 0x8000) {
 		entPhys->setAngleNegative();
 	}
 	if (GetAsyncKeyState('E') & 0x8000) {
-		entPhys->setAnglePositive();
+		entPhys->setAnglePositive();		
 		//keyboardInput.y -= boxSpeed;
 	}
 	if (GetAsyncKeyState('W') & 0x8000) {
 		entPhys->setZIntentPositive();
+		dirZ = 1;
+		lastDirZ = dirZ;
 		//keyboardInput.z += boxSpeed;
 	}
 	if (GetAsyncKeyState('S') & 0x8000) {
 		entPhys->setZIntentNegative();
+		dirZ = -1;
+		lastDirZ = dirZ;
 		//keyboardInput.z -= boxSpeed;
 	}
 	if (GetAsyncKeyState('A') & 0x8000){
 		entPhys->setXIntentNegative();
-	//keyboardInput.x -= boxSpeed;
+		dirX = 1;
+		lastDirX = dirX;
+		//keyboardInput.x -= boxSpeed;
 	}
 	if (GetAsyncKeyState('D') & 0x8000) {
 		entPhys->setXIntentPositive();
+		dirX = -1;
+		lastDirX = dirX;		
 		//keyboardInput.x += boxSpeed;
 	}
 	if (GetAsyncKeyState(' ') & 0x8000) {
 		entPhys->decrementJump();
+	}
+
+	if (dirZ == 0) {
+		float tempT = countDownZ - 0.015f;
+		if (tempT > 0) {
+			countDownZ = tempT;
+		}
+		else {
+			countDownZ = 0.0f;
+			lastDirZ = 0;
+		}
+		boxSpeedZ *= sin(countDownZ);
+
+		switch (lastDirZ) {
+			case 1:				
+				entPhys->setZIntentPositive();
+				break;
+			case -1:
+				entPhys->setZIntentNegative();
+				break;
+		}				
+	}
+	else {		
+		countDownZ = 1.57f;
+	}
+
+	if (dirX == 0) {
+		float tempT = countDownX - 0.02f;
+		if (tempT > 0) {
+			countDownX = tempT;
+		}
+		else {
+			countDownX = 0.0f;
+			lastDirX = 0;
+		}
+		boxSpeedX *= sin(countDownX);
+
+		switch (lastDirX) {
+		case -1:
+			entPhys->setXIntentPositive();
+			break;
+		case 1:
+			entPhys->setXIntentNegative();
+			break;
+		}
+	}
+	else {
+		countDownX = 1.57f;
 	}
 
 	//box translation//
@@ -729,7 +790,7 @@ void App::OnKeyboardInput(const GameTimer& gt)
 	//formerly mboxritemmovable
     firstbox->NumFramesDirty++;
 
-	Physics::XYZPhysics(pos, entPhys, boxSpeed);
+	Physics::XYZPhysics(pos, entPhys, 3.0f*dt, boxSpeedX, boxSpeedZ);
 
     /*ent.SetPosition(pos);
 
