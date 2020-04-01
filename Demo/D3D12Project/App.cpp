@@ -31,9 +31,12 @@ const int gNumFrameResources = 3;
 const bool isTopDown = true;
 XMFLOAT3 topPos = { 0.0f, 20.0f, 0.0f };
 
-//For timer reset
+// For acceleration
 int lastDirX = 0,lastDirZ = 0;
 float countDownX = 0.0f, countDownZ = 0.0f;
+
+// Control the acceleration, smaller = longer acceleration
+const float decel = 0.005f;
 
 class App : public D3DApp
 {
@@ -666,11 +669,12 @@ void App::OnKeyboardInput(const GameTimer& gt)
 {
     const float dt = gt.DeltaTime();
 	PhysicsEntity* entPhys = FindEnt("player")->GetPhysHolder();
-		
-    float boxSpeedX = 3.0f * dt, 
-		  boxSpeedZ = 3.0f * dt;
-	int dirX = 0,dirZ = 0;
-	
+
+	float maxSpeed = 6.0f * dt;
+    float boxSpeedX = maxSpeed, 
+		  boxSpeedZ = maxSpeed;
+	bool moveZ = false, moveX = false;
+
 	if (GetAsyncKeyState('Q') & 0x8000) {
 		entPhys->setAngleNegative();
 	}
@@ -678,36 +682,34 @@ void App::OnKeyboardInput(const GameTimer& gt)
 		entPhys->setAnglePositive();		
 		//keyboardInput.y -= boxSpeed;
 	}
+
 	if (GetAsyncKeyState('W') & 0x8000) {
 		entPhys->setZIntentPositive();
-		dirZ = 1;
-		lastDirZ = dirZ;
+		moveZ = true;
 		//keyboardInput.z += boxSpeed;
 	}
 	if (GetAsyncKeyState('S') & 0x8000) {
 		entPhys->setZIntentNegative();
-		dirZ = -1;
-		lastDirZ = dirZ;
+		moveZ = true;
 		//keyboardInput.z -= boxSpeed;
 	}
 	if (GetAsyncKeyState('A') & 0x8000){
 		entPhys->setXIntentNegative();
-		dirX = 1;
-		lastDirX = dirX;
+		moveX = true;
 		//keyboardInput.x -= boxSpeed;
 	}
 	if (GetAsyncKeyState('D') & 0x8000) {
 		entPhys->setXIntentPositive();
-		dirX = -1;
-		lastDirX = dirX;		
+		moveX = true;
 		//keyboardInput.x += boxSpeed;
 	}
 	if (GetAsyncKeyState(' ') & 0x8000) {
 		entPhys->decrementJump();
 	}
 
-	if (dirZ == 0) {
-		float tempT = countDownZ - 0.015f;
+
+	if (moveZ) {
+		float tempT = countDownZ - decel;
 		if (tempT > 0) {
 			countDownZ = tempT;
 		}
@@ -715,23 +717,12 @@ void App::OnKeyboardInput(const GameTimer& gt)
 			countDownZ = 0.0f;
 			lastDirZ = 0;
 		}
-		boxSpeedZ *= sin(countDownZ);
-
-		switch (lastDirZ) {
-			case 1:				
-				entPhys->setZIntentPositive();
-				break;
-			case -1:
-				entPhys->setZIntentNegative();
-				break;
-		}				
+		boxSpeedZ *= cos(countDownZ);		
 	}
-	else {		
-		countDownZ = 1.57f;
-	}
+	else{countDownZ = 1.57f;}
 
-	if (dirX == 0) {
-		float tempT = countDownX - 0.02f;
+	if (moveX) {
+		float tempT = countDownX - decel;
 		if (tempT > 0) {
 			countDownX = tempT;
 		}
@@ -739,20 +730,9 @@ void App::OnKeyboardInput(const GameTimer& gt)
 			countDownX = 0.0f;
 			lastDirX = 0;
 		}
-		boxSpeedX *= sin(countDownX);
-
-		switch (lastDirX) {
-		case -1:
-			entPhys->setXIntentPositive();
-			break;
-		case 1:
-			entPhys->setXIntentNegative();
-			break;
-		}
+		boxSpeedX *= cos(countDownX);
 	}
-	else {
-		countDownX = 1.57f;
-	}
+	else {countDownX = 1.57f;}
 
 	//box translation//
 	XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
