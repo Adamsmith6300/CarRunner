@@ -31,6 +31,8 @@ const int gNumFrameResources = 3;
 const bool isTopDown = false;
 XMFLOAT3 topPos = { 0.0f, 20.0f, 0.0f };
 
+// Control the acceleration, smaller = longer acceleration
+const float decel = 0.025f;
 
 enum class RenderLayer : int
 {
@@ -689,35 +691,66 @@ void App::OnKeyboardInput(const GameTimer& gt)
     const float dt = gt.DeltaTime();
 	PhysicsEntity* entPhys = FindEnt("player")->GetPhysHolder();
 
-    float boxSpeed = 27.0f * dt;
+	float maxSpeed = 9.0f * dt;
+    float boxSpeedX = maxSpeed, 
+		  boxSpeedZ = maxSpeed;
+	bool moveZ = false, moveX = false;
 
 	if (GetAsyncKeyState('Q') & 0x8000) {
 		entPhys->setAngleNegative();
 	}
 	if (GetAsyncKeyState('E') & 0x8000) {
-		entPhys->setAnglePositive();
+		entPhys->setAnglePositive();		
 		//keyboardInput.y -= boxSpeed;
 	}
+
 	if (GetAsyncKeyState('W') & 0x8000) {
 		entPhys->setZIntentPositive();
+		moveZ = true;
 		//keyboardInput.z += boxSpeed;
 	}
 	if (GetAsyncKeyState('S') & 0x8000) {
 		entPhys->setZIntentNegative();
+		moveZ = true;
 		//keyboardInput.z -= boxSpeed;
 	}
 	if (GetAsyncKeyState('A') & 0x8000){
 		entPhys->setXIntentNegative();
-	//keyboardInput.x -= boxSpeed;
+		moveX = true;
+		//keyboardInput.x -= boxSpeed;
 	}
 	if (GetAsyncKeyState('D') & 0x8000) {
 		entPhys->setXIntentPositive();
+		moveX = true;
 		//keyboardInput.x += boxSpeed;
 	}
 	if (GetAsyncKeyState(' ') & 0x8000) {
-		entPhys->decrementJump();
-		boxSpeed = 5.0f * dt;
+		entPhys->decrementJump();		
 	}
+
+	if (moveZ) {
+		float tempT = FindEnt("player")->getCountDownZ() - decel;
+		if (tempT > 0) {
+			FindEnt("player")->setCountDownZ(tempT);
+		}
+		else {
+			FindEnt("player")->resetCountDownZ(true);			
+		}
+		boxSpeedZ *= cos(FindEnt("player")->getCountDownZ());
+	}
+	else{ FindEnt("player")->resetCountDownZ(false); }
+
+	if (moveX) {
+		float tempT = FindEnt("player")->getCountDownX() - decel;
+		if (tempT > 0) {
+			FindEnt("player")->setCountDownX(tempT);
+		}
+		else {
+			FindEnt("player")->resetCountDownX(true);
+		}
+		boxSpeedX *= cos(FindEnt("player")->getCountDownX());
+	}
+	else { FindEnt("player")->resetCountDownX(false); }
 
 	//box translation//
 	XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
@@ -754,7 +787,9 @@ void App::OnKeyboardInput(const GameTimer& gt)
 	//formerly mboxritemmovable
     firstbox->NumFramesDirty++;
 
-	Physics::XYZPhysics(pos, entPhys, boxSpeed);
+	// boxSpeed 
+	//boxSpeed = 5.0f * dt;
+	Physics::XYZPhysics(pos, entPhys, 5.0f*dt, boxSpeedX, boxSpeedZ);
 
     /*ent.SetPosition(pos);
 
