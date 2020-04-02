@@ -723,7 +723,7 @@ void App::OnKeyboardInput(const GameTimer& gt)
 		else {
 			FindEnt("player")->resetCountDownX(true);
 		}
-		boxSpeedZ *= cos(FindEnt("player")->getCountDownX());
+		boxSpeedX *= cos(FindEnt("player")->getCountDownX());
 	}
 	else { FindEnt("player")->resetCountDownX(false); }
 
