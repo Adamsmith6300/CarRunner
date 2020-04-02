@@ -31,12 +31,8 @@ const int gNumFrameResources = 3;
 const bool isTopDown = true;
 XMFLOAT3 topPos = { 0.0f, 20.0f, 0.0f };
 
-// For acceleration
-int lastDirX = 0,lastDirZ = 0;
-float countDownX = 0.0f, countDownZ = 0.0f;
-
 // Control the acceleration, smaller = longer acceleration
-const float decel = 0.005f;
+const float decel = 0.015f;
 
 class App : public D3DApp
 {
@@ -707,32 +703,29 @@ void App::OnKeyboardInput(const GameTimer& gt)
 		entPhys->decrementJump();
 	}
 
-
 	if (moveZ) {
-		float tempT = countDownZ - decel;
+		float tempT = FindEnt("player")->getCountDownZ() - decel;
 		if (tempT > 0) {
-			countDownZ = tempT;
+			FindEnt("player")->setCountDownZ(tempT);
 		}
 		else {
-			countDownZ = 0.0f;
-			lastDirZ = 0;
+			FindEnt("player")->resetCountDownZ(true);			
 		}
-		boxSpeedZ *= cos(countDownZ);		
+		boxSpeedZ *= cos(FindEnt("player")->getCountDownZ());
 	}
-	else{countDownZ = 1.57f;}
+	else{ FindEnt("player")->resetCountDownZ(false); }
 
 	if (moveX) {
-		float tempT = countDownX - decel;
+		float tempT = FindEnt("player")->getCountDownX() - decel;
 		if (tempT > 0) {
-			countDownX = tempT;
+			FindEnt("player")->setCountDownX(tempT);
 		}
 		else {
-			countDownX = 0.0f;
-			lastDirX = 0;
+			FindEnt("player")->resetCountDownX(true);
 		}
-		boxSpeedX *= cos(countDownX);
+		boxSpeedZ *= cos(FindEnt("player")->getCountDownX());
 	}
-	else {countDownX = 1.57f;}
+	else { FindEnt("player")->resetCountDownX(false); }
 
 	//box translation//
 	XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);

@@ -133,3 +133,22 @@ PhysicsEntity* Entity::GetPhysHolder() const
 {
 	return pPhysHolder;
 }
+
+float Entity::getCountDownX() {
+	return countDownX;
+}
+float Entity::getCountDownZ() {
+	return countDownZ;
+}
+void Entity::setCountDownX(float f) {
+	countDownX = f;
+}
+void Entity::setCountDownZ(float f) {
+	countDownZ = f;
+}
+void Entity::resetCountDownX(bool zero) {
+	countDownX = (zero) ? 0 : 1.57f;
+}
+void Entity::resetCountDownZ(bool zero) {
+	countDownZ = (zero) ? 0 : 1.57f;
+}
