@@ -87,16 +87,16 @@ void Physics::Jump(POS& pos, POS& velocity, POS& intent, float deltaTime)
 
 bool Physics::Ground(POS& pos, POS& velocity)
 {
-	if (pos.y >= 0)
+	if (pos.y >= -3)
 		return false;
-	pos.y = 0;
+	pos.y = -3;
 	velocity.y = 0;
 	return true;
 }
 
 bool Physics::collisionCheck(Entity* firstEntity, Entity* secondEntity)
 {
-	std::wostringstream ss;
+	//std::wostringstream ss;
 	//ss << XMVectorGetX(firstboxmin) << " " << XMVectorGetX(secondboxmin)<< std::endl;
 	//ss << "blockmin " << secondEntity.boundingboxminvertex.x << " " << secondEntity.boundingboxminvertex.y << " " << secondEntity.boundingboxminvertex.z << std::endl;
 	//ss << "Firstbox center"<< firstEntity.getCenter().x << " " << firstEntity.getCenter().y << " " << firstEntity.getCenter().z << std::endl;
@@ -105,7 +105,7 @@ bool Physics::collisionCheck(Entity* firstEntity, Entity* secondEntity)
 	//ss << "Secondbox Vertex " << secondEntity->boundingboxminvertex.x << " " << secondEntity->boundingboxminvertex.y << " " << secondEntity->boundingboxminvertex.z << std::endl;
 	//ss << "normal " <<normal.x << " " << normal.y << " " << normal.z << std::endl;
 	//ss << std::endl;
-	OutputDebugString(ss.str().c_str());
+	//OutputDebugString(ss.str().c_str());
 
 	//Is obj1's max X greater than obj2's min X? If not, obj1 is to the LEFT of obj2
 	if (firstEntity->boundingboxmaxvertex.x > secondEntity->boundingboxminvertex.x) {
@@ -179,9 +179,14 @@ void Physics::handleCollision(Entity* firstEntity, Entity* secondEntity, XMFLOAT
 	else if (ay <= az) {
 
 		XMFLOAT3 vel = first->getVelocity();
-		vel.y = 0;
-		pos.y += 0.005;
-
+		if (sy > 0) {
+			vel.y = 0;
+			pos.y += 0.005;
+		}
+		else {
+			vel.y = 0;
+			pos.y -= 0.01;
+		}
 		/*std::wostringstream ss;
 		ss << sy << std::endl;
 		OutputDebugString(ss.str().c_str()); */		
