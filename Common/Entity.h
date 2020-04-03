@@ -15,6 +15,8 @@ private:
 	POS mRight;
 	POS mUp;
 	POS mLook;
+	float countDownX = 0.0f, 
+		  countDownZ = 0.0f;
 
 	PhysicsEntity* pPhysHolder = nullptr;
 
@@ -36,7 +38,7 @@ public:
 	void SetPosition(const POS& v);
 	void updateHPos();
 	POS getHPos();
-
+	
 	DIRV GetRight()const;
 	POS GetRight3f()const;
 	DIRV GetUp()const;
@@ -50,5 +52,11 @@ public:
 	void walk(float d);
 	void Strafe(float d);
 
+	float getCountDownX();
+	float getCountDownZ();
+	void setCountDownX(float f);
+	void setCountDownZ(float f);
+	void resetCountDownX(bool zero);
+	void resetCountDownZ(bool zero);
 	PhysicsEntity* GetPhysHolder()const;
 };

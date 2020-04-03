@@ -1,23 +1,23 @@
 #include "Physics.h"
 
-void Physics::XYZPhysics(POS& pos, PhysicsEntity* e, float deltaTime)
+void Physics::XYZPhysics(POS& pos, PhysicsEntity* e, float deltaTime, float velX, float velZ)
 {
 	POS velocity = e->getVelocity()
 		, intent = e->getIntent();
 	float angle = e->getAngle();
 
-	XZPhysics(pos, velocity, intent, angle, deltaTime);
+	XZPhysics(pos, velocity, intent, angle, velX, velZ);
 	e->resetJump(YPhysics(pos, velocity, intent, deltaTime));
 
 	e->setVelocity(velocity);
 	e->setIntent();
 }
 
-void Physics::XZPhysics(POS& pos, POS& velocity, POS& intent, float angle, float deltaTime)
+void Physics::XZPhysics(POS& pos, POS& velocity, POS& intent, float angle, float velX, float velZ)
 {
 	CalcAngleIntent(velocity, intent, angle);
 	SpeedLimit(velocity);
-	ChangePos(pos, velocity, deltaTime);
+	ChangePos(pos, velocity, velX, velZ);
 }
 
 void Physics::CalcAngleIntent(POS& velocity, POS& intent, float angle)
@@ -58,10 +58,10 @@ void Physics::SpeedLimit(POS& velocity)
 		velocity.x = -velocitycap;
 }
 
-void Physics::ChangePos(POS& pos, POS& velocity, float deltaTime)
+void Physics::ChangePos(POS& pos, POS& velocity, float velX, float velZ)
 {
-	pos.z += velocity.z * deltaTime;
-	pos.x += velocity.x * deltaTime;
+	pos.z += velocity.z * velZ;
+	pos.x += velocity.x * velX;
 }
 
 bool Physics::YPhysics(POS& pos, POS& velocity, POS& intent, float deltaTime)
@@ -133,7 +133,7 @@ bool Physics::collisionCheck(Entity* firstEntity, Entity* secondEntity)
 	return false;
 }
 
-void Physics::handleCollision(Entity* firstEntity, Entity* secondEntity, XMFLOAT3& pos ,float deltatime)
+void Physics::handleCollision(Entity* firstEntity, Entity* secondEntity, POS& pos ,float deltatime)
 {
 	PhysicsEntity* first = firstEntity->GetPhysHolder();
 
@@ -181,7 +181,7 @@ void Physics::handleCollision(Entity* firstEntity, Entity* secondEntity, XMFLOAT
 		XMFLOAT3 vel = first->getVelocity();
 		if (sy > 0) {
 			vel.y = 0;
-			pos.y += 0.005;
+			pos.y += 0.015;
 		}
 		else {
 			vel.y = 0;

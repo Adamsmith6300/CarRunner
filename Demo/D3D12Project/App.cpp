@@ -31,6 +31,8 @@ const int gNumFrameResources = 3;
 const bool isTopDown = false;
 XMFLOAT3 topPos = { 0.0f, 20.0f, 0.0f };
 
+// Control the acceleration, smaller = longer acceleration
+const float decel = 0.025f;
 
 enum class RenderLayer : int
 {
@@ -717,36 +719,68 @@ void App::OnKeyboardInput(const GameTimer& gt)
     const float dt = gt.DeltaTime();
 	PhysicsEntity* entPhys = FindEnt("player")->GetPhysHolder();
 
-    float boxSpeed = 2.0f * dt;
+
+	float maxSpeed = 9.0f * dt;
+    float boxSpeedX = maxSpeed, 
+		  boxSpeedZ = maxSpeed;
+	bool moveZ = false, moveX = false;
 
 	if (GetAsyncKeyState('Q') & 0x8000) {
 		entPhys->setAngleNegative();
 	}
 	if (GetAsyncKeyState('E') & 0x8000) {
-		entPhys->setAnglePositive();
+		entPhys->setAnglePositive();		
 		//keyboardInput.y -= boxSpeed;
 	}
+
 	if (GetAsyncKeyState('W') & 0x8000) {
 		entPhys->setZIntentPositive();
+		moveZ = true;
 		//keyboardInput.z += boxSpeed;
 	}
 	if (GetAsyncKeyState('S') & 0x8000) {
 		entPhys->setZIntentNegative();
+		moveZ = true;
 		//keyboardInput.z -= boxSpeed;
 	}
 	if (GetAsyncKeyState('A') & 0x8000){
 		entPhys->setXIntentNegative();
-	//keyboardInput.x -= boxSpeed;
+		moveX = true;
+		//keyboardInput.x -= boxSpeed;
 	}
 	if (GetAsyncKeyState('D') & 0x8000) {
 		entPhys->setXIntentPositive();
+		moveX = true;
 		//keyboardInput.x += boxSpeed;
 	}
 	if (GetAsyncKeyState(' ') & 0x8000) {
-		entPhys->decrementJump();
-		boxSpeed = 5.0f * dt;
+		entPhys->decrementJump();		
 	}
 
+	if (moveZ) {
+		float tempT = FindEnt("player")->getCountDownZ() - decel;
+		if (tempT > 0) {
+			FindEnt("player")->setCountDownZ(tempT);
+		}
+		else {
+			FindEnt("player")->resetCountDownZ(true);			
+		}
+		boxSpeedZ *= cos(FindEnt("player")->getCountDownZ());
+	}
+	else{ FindEnt("player")->resetCountDownZ(false); }
+
+	if (moveX) {
+		float tempT = FindEnt("player")->getCountDownX() - decel;
+		if (tempT > 0) {
+			FindEnt("player")->setCountDownX(tempT);
+		}
+		else {
+			FindEnt("player")->resetCountDownX(true);
+		}
+		boxSpeedX *= cos(FindEnt("player")->getCountDownX());
+	}
+	else { FindEnt("player")->resetCountDownX(false); }
+	
 	//box translation//
 	XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
 	XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
@@ -764,7 +798,8 @@ void App::OnKeyboardInput(const GameTimer& gt)
 	//calculate new bounding box of first box
 	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
 
-	Physics::XYZPhysics(pos, entPhys, boxSpeed);
+	//Physics::XYZPhysics(pos, entPhys, boxSpeed);
+	Physics::XYZPhysics(pos, entPhys, 5.0f * dt, boxSpeedX, boxSpeedZ);
 	FindEnt("player")->SetPosition(pos);
 
 	collision("player", pos, dt);
@@ -772,6 +807,10 @@ void App::OnKeyboardInput(const GameTimer& gt)
 
 	//formerly mboxritemmovable
     firstbox->NumFramesDirty++;
+
+	// boxSpeed 
+	//boxSpeed = 5.0f * dt;
+
     /*ent.SetPosition(pos);
 
 	if (!isTopDown) {
@@ -1634,11 +1673,12 @@ void App::BuildRenderItems()
 	mAllRitems.push_back(std::move(roadRitem));
 	FindEnt("road")->calcAABB(roadBoundingVertPosArray);
 
-
+	BuildEnt("endplatform");
 	auto endTunnelRitem = std::make_unique<RenderItem>();
 	endTunnelRitem->World = MathHelper::Identity4x4();
+	XMStoreFloat4x4(&FindEnt("endplatform")->World, XMMatrixTranslation(0.0f, -1.1f, -2.7f * carCount) * XMMatrixRotationRollPitchYaw(0.0f,3.14f,0.0f));
 	XMStoreFloat4x4(&endTunnelRitem->World, XMMatrixTranslation(0.0f, -1.1f, -2.7f*carCount)* XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
-	//XMStoreFloat4x4(&startTunnelRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
+	XMStoreFloat4x4(&endTunnelRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 	endTunnelRitem->ObjCBIndex = objCBIndex++;
 	endTunnelRitem->Mat = mMaterials["tile0"].get();
 	endTunnelRitem->Geo = mGeometries["shapeGeo"].get();
@@ -1648,6 +1688,7 @@ void App::BuildRenderItems()
 	endTunnelRitem->BaseVertexLocation = endTunnelRitem->Geo->DrawArgs["tunnel"].BaseVertexLocation;
 	mRitemLayer[(int)RenderLayer::Opaque].push_back(endTunnelRitem.get());
 	mAllRitems.push_back(std::move(endTunnelRitem));
+	FindEnt("endplatform")->calcAABB(platformBoundingVertPosArray);
 
 	carsCBIndexStart = objCBIndex;
 	for (int i = 0; i < carCount/3; ++i) {
