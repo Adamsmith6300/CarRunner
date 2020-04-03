@@ -87,9 +87,9 @@ void Physics::Jump(POS& pos, POS& velocity, POS& intent, float deltaTime)
 
 bool Physics::Ground(POS& pos, POS& velocity)
 {
-	if (pos.y >= 0)
+	if (pos.y >= -3)
 		return false;
-	pos.y = 0;
+	pos.y = -3;
 	velocity.y = 0;
 	return true;
 }
@@ -133,7 +133,7 @@ bool Physics::collisionCheck(Entity* firstEntity, Entity* secondEntity)
 	return false;
 }
 
-void Physics::handleCollision(Entity* firstEntity, Entity* secondEntity)
+void Physics::handleCollision(Entity* firstEntity, Entity* secondEntity, POS& pos ,float deltatime)
 {
 	PhysicsEntity* first = firstEntity->GetPhysHolder();
 
@@ -148,12 +148,6 @@ void Physics::handleCollision(Entity* firstEntity, Entity* secondEntity)
 	ss << "normal " <<normal.x << " " << normal.y << " " << normal.z << std::endl;
 	ss << std::endl;
 	OutputDebugString(ss.str().c_str());*/
-
-	//std::wostringstream ss;
-	/*ss << "initial x " << pos.x << std::endl;
-	ss << "initial y " << pos.y << std::endl;
-	ss << "initial z " << pos.z << std::endl;*/
-	//ss << std::endl;
 
 	XMFLOAT3 intMin = Physics::makeCeil(firstEntity->boundingboxminvertex, secondEntity->boundingboxminvertex);
 	XMFLOAT3 intMax = Physics::makeFloor(firstEntity->boundingboxmaxvertex, secondEntity->boundingboxmaxvertex);
@@ -175,7 +169,6 @@ void Physics::handleCollision(Entity* firstEntity, Entity* secondEntity)
 	//checking which face is colliding with and multiplying collision normal of face
 	if (ax <= ay && ax <= az) {
 		
-		//pos.x += firstEntity.GetPhysHolder()->getVelocity().x * sx;
 		if (sx > 0) {
 			first->setXIntentPositive();
 		}
@@ -184,10 +177,20 @@ void Physics::handleCollision(Entity* firstEntity, Entity* secondEntity)
 		}
 	}
 	else if (ay <= az) {
-		//pos.y += firstEntity.GetPhysHolder()->getVelocity().y * sy;
-		//pos.y += velocity.y * sy
+
 		XMFLOAT3 vel = first->getVelocity();
-		vel.y = 0;
+		if (sy > 0) {
+			vel.y = 0;
+			pos.y += 0.015;
+		}
+		else {
+			vel.y = 0;
+			pos.y -= 0.01;
+		}
+		/*std::wostringstream ss;
+		ss << sy << std::endl;
+		OutputDebugString(ss.str().c_str()); */		
+
 		first->setVelocity(vel);
 		first->resetJump(true);
 	}

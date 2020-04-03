@@ -7,7 +7,7 @@ class Physics
 public:
 	static void XYZPhysics(POS& pos, PhysicsEntity* e, float deltaTime, float velX, float velZ);
 	static bool collisionCheck(Entity* firstEntity, Entity* secondEntity);
-	static void handleCollision(Entity* firstEntity, Entity* secondEntity);
+	static void handleCollision(Entity* firstEntity, Entity* secondEntity, POS& pos, float deltatime);
 	static XMFLOAT3 makeCeil(XMFLOAT3 first, XMFLOAT3 second);
 	static XMFLOAT3 makeFloor(XMFLOAT3 first, XMFLOAT3 second);
 private:
