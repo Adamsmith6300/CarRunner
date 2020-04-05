@@ -90,6 +90,7 @@ private:
     void BuildShapeGeometry();
 	void BuildplatformGeometry();
 	void BuildTruckGeometry();
+	void BuildSkullGeometry();
     void BuildPSOs();
     void BuildFrameResources();
 	void BuildMaterials();
@@ -117,12 +118,6 @@ private:
 
     std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
 
-	// List of all the render items.
-	//cbIndex 0 -> skybox
-	//cbIndex 1 -> player1
-	//cbIndex 2 -> player2
-	//cbIndex 3 -> grid
-	//cbIndex 4+ -> platforms/cars
 	std::vector<std::unique_ptr<RenderItem>> mAllRitems;
     RenderItem* mBoxItemMovable;
     XMFLOAT3 pos = { 0.0f, 0.0f, 0.0f };
@@ -137,7 +132,6 @@ private:
 	RenderItem* secondbox = nullptr;
 	std::vector<XMFLOAT3> boxBoundingVertPosArray;
 	std::vector<DWORD> boxBoundingVertIndexArray;
-
 	GeometryGenerator::MeshData box;
 
 	std::vector<XMFLOAT3> carBoundingVertPosArray;
@@ -152,8 +146,12 @@ private:
 	std::vector<DWORD> roadBoundingVertIndexArray;
 	GeometryGenerator::MeshData road;
 
+	std::vector<XMFLOAT3> skullBoundingVertPosArray;
+	std::vector<DWORD> skullBoundingVertIndexArray;
+	GeometryGenerator::MeshData skull;
+
 	UINT carsCBIndexStart = 0;
-	UINT carCount = 59;
+	UINT carCount = 33;
 
 	// Render items divided by PSO.
 	std::vector<RenderItem*> mRitemLayer[(int)RenderLayer::Count];
@@ -206,6 +204,11 @@ App::App(HINSTANCE hInstance)
 
 App::~App()
 {
+	/*std::map<string, Entity*>::iterator it = ents.begin();
+	while (it != ents.end()) {
+		delete it->second;
+		++it;
+	}*/
     if(md3dDevice != nullptr)
         FlushCommandQueue();
 }
@@ -282,11 +285,13 @@ bool App::Initialize()
     BuildShapeGeometry();
 	BuildTruckGeometry();
 	BuildplatformGeometry();
+	BuildSkullGeometry();
 	BuildMaterials();
 	//for creating the necessary vertices for bounding boxes
 	CreateBoundingVolumes(box.Vertices, boxBoundingVertPosArray, boxBoundingVertIndexArray);
 	CreateBoundingVolumes(platform.Vertices,platformBoundingVertPosArray,platformBoundingVertIndexArray);
 	CreateBoundingVolumes(road.Vertices, roadBoundingVertPosArray, roadBoundingVertIndexArray);
+	CreateBoundingVolumes(skull.Vertices, skullBoundingVertPosArray, skullBoundingVertIndexArray);
 	//CreateBoundingVolumes();
 	BuildRenderItems();
     BuildFrameResources();
@@ -330,7 +335,7 @@ void App::Update(const GameTimer& gt)
     }
 
 	AnimateMaterials(gt);
-	//MoveCars(gt);
+	MoveCars(gt);
 	UpdateObjectCBs(gt);
 	UpdateMaterialBuffer(gt);
 	UpdateMainPassCB(gt);
@@ -720,7 +725,7 @@ void App::OnKeyboardInput(const GameTimer& gt)
 	PhysicsEntity* entPhys = FindEnt("player")->GetPhysHolder();
 
 
-	float maxSpeed = 9.0f * dt;
+	float maxSpeed = 15.0f * dt;
     float boxSpeedX = maxSpeed, 
 		  boxSpeedZ = maxSpeed;
 	bool moveZ = false, moveX = false;
@@ -827,21 +832,27 @@ void App::MoveCars(const GameTimer& gt) {
 	const float dt = gt.DeltaTime();
 	XMFLOAT3 mov = { 0.0f, 0.0f, 3.0f * dt };
 	for (auto& e : mAllRitems) {
-		if (e->ObjCBIndex >= carsCBIndexStart) {
+		if (e->ObjCBIndex >= carsCBIndexStart && e->ObjCBIndex < carsCBIndexStart+carCount) {
+			string entname = "block" + std::to_string(e->ObjCBIndex);
 			XMMATRIX world = XMLoadFloat4x4(&e->World);
 			//XMMATRIX boxScale = XMMatrixScaling(0.5f, 0.5f, 0.5f);
 			XMMATRIX boxOffset = XMMatrixTranslation(mov.x, mov.y, mov.z);
 			XMMATRIX boxWorld = world * boxOffset;
 			if (e->World(3, 2) > (20 * 8.0f)) {
 				XMMATRIX transl = XMMatrixTranslation(5.0f, -0.8f, 0.0f);
-				if(e->ObjCBIndex >= carsCBIndexStart + 20)transl = XMMatrixTranslation(0.0f, -0.8f, 0.0f);
-				if(e->ObjCBIndex >= carsCBIndexStart + 39)transl = XMMatrixTranslation(-5.0f, -0.8f, 0.0f);
+				if(e->ObjCBIndex >= carsCBIndexStart + carCount/3)transl = XMMatrixTranslation(0.0f, -0.8f, 0.0f);
+				if(e->ObjCBIndex >= carsCBIndexStart + (2*carCount / 3))transl = XMMatrixTranslation(-5.0f, -0.8f, 0.0f);
 				XMMATRIX resetPos = XMMatrixScaling(0.5f, 0.5f, 0.5f) * transl * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f);
 				XMStoreFloat4x4(&e->World, resetPos);
+				XMStoreFloat4x4(&FindEnt(entname)->World, resetPos);
 			}
 			else {
 				XMStoreFloat4x4(&e->World, boxWorld);
+				XMStoreFloat4x4(&FindEnt(entname)->World, boxWorld);
 			}
+			////OutputDebugStringA(entname.c_str());
+			////OutputDebugString(L"\n");
+			FindEnt(entname)->calcAABB(carBoundingVertPosArray);
 			e->NumFramesDirty++;
 		}
 	}
@@ -937,7 +948,7 @@ void App::UpdateMainPassCB(const GameTimer& gt)
 	for (int i = 3; i < 6; ++i) {
 		//mMainPassCB.Lights[i].Direction = { 0.0f, -5.0f, -10.0f };
 		mMainPassCB.Lights[i].Strength = { 1.0f, 0.0f, 0.0f };
-		mMainPassCB.Lights[i].Position = { ((i-3)*5.0f)-5.0f, 1.0f, 2.6f*carCount};
+		mMainPassCB.Lights[i].Position = { ((i-3)*5.0f)-5.0f, 1.0f, 2.6f*59};
 		//mMainPassCB.Lights[i].FalloffStart = 0.5f;
 		mMainPassCB.Lights[i].FalloffEnd = 20.0f;
 		//mMainPassCB.Lights[i].SpotPower = 15.0f;
@@ -1452,6 +1463,83 @@ void App::BuildTruckGeometry()
 
 }
 
+void App::BuildSkullGeometry()
+{
+	std::ifstream fin("Models/skull.txt");
+
+	if (!fin)
+	{
+		MessageBox(0, L"Models/skull.txt not found.", 0, 0);
+		return;
+	}
+
+	UINT vcount = 0;
+	UINT tcount = 0;
+	std::string ignore;
+
+	fin >> ignore >> vcount;
+	fin >> ignore >> tcount;
+	fin >> ignore >> ignore >> ignore >> ignore;
+
+	std::vector<Vertex> vertices(vcount);
+	for (UINT i = 0; i < vcount; ++i)
+	{
+		fin >> vertices[i].Pos.x >> vertices[i].Pos.y >> vertices[i].Pos.z;
+		fin >> vertices[i].Normal.x >> vertices[i].Normal.y >> vertices[i].Normal.z;
+	}
+
+	fin >> ignore;
+	fin >> ignore;
+	fin >> ignore;
+
+	std::vector<std::int32_t> indices(3 * tcount);
+	for (UINT i = 0; i < tcount; ++i)
+	{
+		fin >> indices[i * 3 + 0] >> indices[i * 3 + 1] >> indices[i * 3 + 2];
+	}
+
+	fin.close();
+
+	//
+	// Pack the indices of all the meshes into one index buffer.
+	//
+
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+
+	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::int32_t);
+
+	auto geo = std::make_unique<MeshGeometry>();
+	geo->Name = "skullGeo";
+
+	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+
+	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+
+	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
+
+	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
+
+	geo->VertexByteStride = sizeof(Vertex);
+	geo->VertexBufferByteSize = vbByteSize;
+	geo->IndexFormat = DXGI_FORMAT_R32_UINT;
+	geo->IndexBufferByteSize = ibByteSize;
+
+	SubmeshGeometry submesh;
+	submesh.IndexCount = (UINT)indices.size();
+	submesh.StartIndexLocation = 0;
+	submesh.BaseVertexLocation = 0;
+
+	geo->DrawArgs["skull"] = submesh;
+
+	mGeometries[geo->Name] = std::move(geo);
+
+	CreateBoundingVolumes(vertices, skullBoundingVertPosArray, indices);
+}
+
 void App::BuildPSOs()
 {
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC opaquePsoDesc;
@@ -1676,8 +1764,8 @@ void App::BuildRenderItems()
 	BuildEnt("endplatform");
 	auto endTunnelRitem = std::make_unique<RenderItem>();
 	endTunnelRitem->World = MathHelper::Identity4x4();
-	XMStoreFloat4x4(&FindEnt("endplatform")->World, XMMatrixTranslation(0.0f, -1.1f, -2.7f * carCount) * XMMatrixRotationRollPitchYaw(0.0f,3.14f,0.0f));
-	XMStoreFloat4x4(&endTunnelRitem->World, XMMatrixTranslation(0.0f, -1.1f, -2.7f*carCount)* XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
+	XMStoreFloat4x4(&FindEnt("endplatform")->World, XMMatrixTranslation(0.0f, -1.1f, -2.7f * 59) * XMMatrixRotationRollPitchYaw(0.0f,3.14f,0.0f));
+	XMStoreFloat4x4(&endTunnelRitem->World, XMMatrixTranslation(0.0f, -1.1f, -2.7f*59)* XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
 	XMStoreFloat4x4(&endTunnelRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 	endTunnelRitem->ObjCBIndex = objCBIndex++;
 	endTunnelRitem->Mat = mMaterials["tile0"].get();
@@ -1693,9 +1781,10 @@ void App::BuildRenderItems()
 	carsCBIndexStart = objCBIndex;
 	for (int i = 0; i < carCount/3; ++i) {
 		auto platformRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(-5.0f, -0.8f, (i * -8.0f)) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
+		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(-5.0f, -0.8f, (i * -12.0f)) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
 		XMStoreFloat4x4(&platformRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 		platformRitem->ObjCBIndex = objCBIndex++;
+		string entname = "block" + std::to_string(platformRitem->ObjCBIndex);
 		platformRitem->Mat = mMaterials["bricks0"].get();
 		platformRitem->Geo = mGeometries["semitruckGeo"].get();
 		platformRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1706,20 +1795,20 @@ void App::BuildRenderItems()
 		mAllRitems.push_back(std::move(platformRitem));
 		
 		//code needed to check for collision between entities
-		string entname = "block" + std::to_string(i);
 		////OutputDebugStringA(entname.c_str());
 		////OutputDebugString(L"\n");
 		BuildEnt(entname);
-		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(-5.0f, -0.8f, i * -8.0f) /** XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f)*/);
+		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(-5.0f, -0.8f, (i * -12.0f)) /** XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f)*/);
 		FindEnt(entname)->calcAABB(carBoundingVertPosArray);
 
 	}
 
 	for (int i = 0; i < carCount / 3; ++i) {
 		auto platformRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(0.0f, -0.8f, (i * -8.0f) - 4.0f) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
+		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(0.0f, -0.8f, (i * -12.0f) - 4.0f) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
 		XMStoreFloat4x4(&platformRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 		platformRitem->ObjCBIndex = objCBIndex++;
+		string entname = "block" + std::to_string(platformRitem->ObjCBIndex);
 		platformRitem->Mat = mMaterials["bricks0"].get();
 		platformRitem->Geo = mGeometries["semitruckGeo"].get();
 		platformRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1729,20 +1818,20 @@ void App::BuildRenderItems()
 		mRitemLayer[(int)RenderLayer::Opaque].push_back(platformRitem.get());
 		mAllRitems.push_back(std::move(platformRitem));
 		//code needed to check for collision between entities
-		string entname = "block" + std::to_string(i+(carCount / 3));
 		//OutputDebugStringA(entname.c_str());
 		////OutputDebugString(L"\n");
 		BuildEnt(entname);
-		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(0.0f, -0.8f, (i * -8.0f) - 4.0f) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
+		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(0.0f, -0.8f, (i * -12.0f) - 4.0f) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
 		FindEnt(entname)->calcAABB(carBoundingVertPosArray);
 
 	}
 
 	for (int i = 0; i < carCount / 3; ++i) {
 		auto platformRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, -0.8f, i * -8.0f) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
+		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, -0.8f, (i * -12.0f)) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
 		XMStoreFloat4x4(&platformRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 		platformRitem->ObjCBIndex = objCBIndex++;
+		string entname = "block" + std::to_string(platformRitem->ObjCBIndex);
 		platformRitem->Mat = mMaterials["bricks0"].get();
 		platformRitem->Geo = mGeometries["semitruckGeo"].get();
 		platformRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1752,14 +1841,13 @@ void App::BuildRenderItems()
 		mRitemLayer[(int)RenderLayer::Opaque].push_back(platformRitem.get());
 		mAllRitems.push_back(std::move(platformRitem));
 		//code needed to check for collision between entities
-		string entname = "block" + std::to_string(i + (2 * carCount / 3));
 		////OutputDebugStringA(entname.c_str());
 		////OutputDebugString(L"\n");
 		BuildEnt(entname);
-		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, -0.8f, i * -8.0f) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
+		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, -0.8f, (i * -12.0f)) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
 		FindEnt(entname)->calcAABB(carBoundingVertPosArray);
 	}
-
+	
 	BuildEnt("car");
 	auto platformRitem = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&FindEnt("car")->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, 2.0f, 5.0f) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
@@ -1775,6 +1863,55 @@ void App::BuildRenderItems()
 	mRitemLayer[(int)RenderLayer::Opaque].push_back(platformRitem.get());
 	mAllRitems.push_back(std::move(platformRitem));
 	FindEnt("car")->calcAABB(carBoundingVertPosArray);
+
+	for (int i = 0; i < 5; ++i) {
+		auto leftSkullRitem = std::make_unique<RenderItem>();
+		auto rightSkullRitem = std::make_unique<RenderItem>();
+
+		XMMATRIX leftSkullWorld = XMMatrixTranslation(-15.0f, -1.0f, 20.0f + i * 20.0f);
+		XMMATRIX rightSkullWorld = XMMatrixTranslation(15.0f, -1.0f, 20.0f + i * 20.0f);
+		XMMATRIX skullSize = XMMatrixScaling(0.3f, 0.3f, 0.3f);
+
+		XMStoreFloat4x4(&leftSkullRitem->World, skullSize * leftSkullWorld);
+		XMStoreFloat4x4(&leftSkullRitem->TexTransform, skullSize);
+		leftSkullRitem->ObjCBIndex = objCBIndex++;
+		leftSkullRitem->Mat = mMaterials["bricks0"].get();
+		leftSkullRitem->Geo = mGeometries["skullGeo"].get();
+		leftSkullRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+		leftSkullRitem->IndexCount = leftSkullRitem->Geo->DrawArgs["skull"].IndexCount;
+		leftSkullRitem->StartIndexLocation = leftSkullRitem->Geo->DrawArgs["skull"].StartIndexLocation;
+		leftSkullRitem->BaseVertexLocation = leftSkullRitem->Geo->DrawArgs["skull"].BaseVertexLocation;
+
+		XMStoreFloat4x4(&rightSkullRitem->World, skullSize * rightSkullWorld);
+		XMStoreFloat4x4(&rightSkullRitem->TexTransform, skullSize);
+		rightSkullRitem->ObjCBIndex = objCBIndex++;
+		rightSkullRitem->Mat = mMaterials["bricks0"].get();
+		rightSkullRitem->Geo = mGeometries["skullGeo"].get();
+		rightSkullRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+		rightSkullRitem->IndexCount = rightSkullRitem->Geo->DrawArgs["skull"].IndexCount;
+		rightSkullRitem->StartIndexLocation = rightSkullRitem->Geo->DrawArgs["skull"].StartIndexLocation;
+		rightSkullRitem->BaseVertexLocation = rightSkullRitem->Geo->DrawArgs["skull"].BaseVertexLocation;
+		
+		mRitemLayer[(int)RenderLayer::Opaque].push_back(leftSkullRitem.get());
+		mRitemLayer[(int)RenderLayer::Opaque].push_back(rightSkullRitem.get());
+		mAllRitems.push_back(std::move(leftSkullRitem));
+		mAllRitems.push_back(std::move(rightSkullRitem));
+
+		//code needed to check for collision between entities
+		string skullEntname = "skull" + std::to_string(2 * i);
+		//OutputDebugStringA(leftSkullEntname.c_str());
+		//OutputDebugString(L"\n");
+		BuildEnt(skullEntname);
+		XMStoreFloat4x4(&FindEnt(skullEntname)->World, skullSize * leftSkullWorld);
+		FindEnt(skullEntname)->calcAABB(skullBoundingVertPosArray);
+
+		skullEntname = "skull" + std::to_string(2 * i + 1);
+		BuildEnt(skullEntname);
+		XMStoreFloat4x4(&FindEnt(skullEntname)->World, skullSize * rightSkullWorld);
+		FindEnt(skullEntname)->calcAABB(skullBoundingVertPosArray);
+	}
+
+	
 }
 
 void App::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
