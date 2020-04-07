@@ -1135,7 +1135,7 @@ void App::BuildShapeGeometry()
 {
     GeometryGenerator geoGen;
 	box = geoGen.CreateBox(0.5f, 0.5f, 0.5f, 3);
-	GeometryGenerator::MeshData box2 = geoGen.CreateBox(1.5f, 0.5f, 1.5f, 3);
+	GeometryGenerator::MeshData box2 = geoGen.CreateBox(0.5f, 0.5f, 0.5f, 3);
 	GeometryGenerator::MeshData grid = geoGen.CreateGrid(15.0f, 5.0f, 30, 20);
 	road = grid;
 	GeometryGenerator::MeshData tunnel = geoGen.CreateTunnel(15.0f, 2.2f, 10.0f, 3);
@@ -1689,8 +1689,8 @@ void App::BuildRenderItems()
 	//	pos = { 2.5f, 0.5f, 0.0f };
 	//}
 	auto boxRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(1.0f, 1.0f, 1.0f) * box1Translation);
-	XMStoreFloat4x4(&boxRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f)); 
+	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box1Translation);
+	XMStoreFloat4x4(&boxRitem->TexTransform, XMMatrixScaling(2.0f, 2.0f, 2.0f));
 	boxRitem->ObjCBIndex = objCBIndex++;
 	boxRitem->Mat = mMaterials["bricks0"].get();
 	boxRitem->Geo = mGeometries["shapeGeo"].get();
@@ -1706,9 +1706,9 @@ void App::BuildRenderItems()
 	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
 	
     auto boxRitem2 = std::make_unique<RenderItem>();
-    XMStoreFloat4x4(&boxRitem2->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box2Translation);
-	XMStoreFloat4x4(&FindEnt("block")->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box2Translation);
-	XMStoreFloat4x4(&boxRitem2->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
+    XMStoreFloat4x4(&boxRitem2->World, XMMatrixScaling(2.0f, 1.0f, 2.0f) * box2Translation);
+	XMStoreFloat4x4(&FindEnt("block")->World, XMMatrixScaling(2.0f, 1.0f, 2.0f) * box2Translation);
+	XMStoreFloat4x4(&boxRitem2->TexTransform, XMMatrixScaling(2.0f, 1.0f, 2.0f));
 	boxRitem2->ObjCBIndex = objCBIndex++;
 	boxRitem2->Mat = mMaterials["bricks0"].get();
     boxRitem2->Geo = mGeometries["shapeGeo"].get();
