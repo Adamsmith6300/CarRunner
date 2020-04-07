@@ -165,6 +165,10 @@ private:
 	Camera mCamera;
 
     POINT mLastMousePos;
+    POINT deltaMousePos;
+    POINT relLastMousePos;
+	POINT relCurrMousePos;
+	POINT jumpChange;
 
 	//networking
 	Server* gameServer = nullptr;
@@ -305,6 +309,13 @@ bool App::Initialize()
     // Wait until initialization is complete.
     FlushCommandQueue();
 
+	//hide mouse
+	ShowCursor(false);
+	relLastMousePos.x = relLastMousePos.y = relCurrMousePos.x = relCurrMousePos.y = 0;
+	mLastMousePos.x = mLastMousePos.y = 0;
+	deltaMousePos.x = deltaMousePos.y = 0;
+	jumpChange.x = jumpChange.y = 0;
+
     return true;
 }
 
@@ -425,30 +436,47 @@ void App::Draw(const GameTimer& gt)
 
 void App::OnMouseDown(WPARAM btnState, int x, int y)
 {
-    mLastMousePos.x = x;
+    /*mLastMousePos.x = x;
     mLastMousePos.y = y;
 
-    SetCapture(mhMainWnd);
+    SetCapture(mhMainWnd);*/
 }
 
 void App::OnMouseUp(WPARAM btnState, int x, int y)
 {
-    ReleaseCapture();
+    //ReleaseCapture();
 }
 
 void App::OnMouseMove(WPARAM btnState, int x, int y)
 {
-        if ((btnState & MK_LBUTTON) != 0)
-        {
-            // Make each pixel correspond to a quarter of a degree.
-            float dx = XMConvertToRadians(0.25f * static_cast<float>(x - mLastMousePos.x));
-            float dy = XMConvertToRadians(0.25f * static_cast<float>(y - mLastMousePos.y));
-            mCamera.Pitch(dy);
-            mCamera.RotateY(dx);
-        }
+	deltaMousePos.x = x - mLastMousePos.x;
+	deltaMousePos.y = y - mLastMousePos.y;
 
-        mLastMousePos.x = x;
-        mLastMousePos.y = y;
+	if (abs(deltaMousePos.x) < 100 && abs(deltaMousePos.y) < 100) {
+		relCurrMousePos.x += deltaMousePos.x;
+		int deltaX = relCurrMousePos.x - relLastMousePos.x;
+		float dx = XMConvertToRadians(0.25f * static_cast<float>(deltaX));
+		mCamera.RotateY(dx);
+		relLastMousePos.x = relCurrMousePos.x;
+
+		relCurrMousePos.y += deltaMousePos.y;
+		int deltaY = relCurrMousePos.y - relLastMousePos.y;
+		float dy = XMConvertToRadians(0.25f * static_cast<float>(deltaY));
+		mCamera.Pitch(dy);
+		relLastMousePos.y = relCurrMousePos.y;
+	}
+
+	/*if (abs(deltaMousePos.y) < mClientHeight/2) {
+		relCurrMousePos.y += deltaMousePos.y;
+		int deltaY = relCurrMousePos.y - relLastMousePos.y;
+		float dy = XMConvertToRadians(0.25f * static_cast<float>(deltaY));
+		mCamera.Pitch(dy);
+		relLastMousePos.y = relCurrMousePos.y;
+	}*/
+
+	mLastMousePos.x = x;
+	mLastMousePos.y = y;
+	//SetCursorPos(mClientWidth/2, mClientHeight/2);
 }
 
 bool App::collisionCheck(XMVECTOR& firstboxmin, XMVECTOR& firstboxmax, XMMATRIX& firstboxworld, XMVECTOR& secondboxmin, XMVECTOR& secondboxmax, XMMATRIX& secondboxworld)
