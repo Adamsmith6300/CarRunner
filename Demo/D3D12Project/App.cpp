@@ -436,15 +436,15 @@ void App::Draw(const GameTimer& gt)
 
 void App::OnMouseDown(WPARAM btnState, int x, int y)
 {
-    /*mLastMousePos.x = x;
+    mLastMousePos.x = x;
     mLastMousePos.y = y;
 
-    SetCapture(mhMainWnd);*/
+    SetCapture(mhMainWnd);
 }
 
 void App::OnMouseUp(WPARAM btnState, int x, int y)
 {
-    //ReleaseCapture();
+    ReleaseCapture();
 }
 
 void App::OnMouseMove(WPARAM btnState, int x, int y)
@@ -464,13 +464,12 @@ void App::OnMouseMove(WPARAM btnState, int x, int y)
 		float dy = XMConvertToRadians(0.25f * static_cast<float>(deltaY));
 		mCamera.Pitch(dy);
 		relLastMousePos.y = relCurrMousePos.y;
+		PhysicsEntity* entPhys = FindEnt("player")->GetPhysHolder();
+		entPhys->setAngle(mCamera.getAngle());
 	}
 
 	mLastMousePos.x = x;
 	mLastMousePos.y = y;
-
-	PhysicsEntity* entPhys = FindEnt("player")->GetPhysHolder();
-	entPhys->setAngle(mCamera.getAngle());
 	//SetCursorPos(mClientWidth/2, mClientHeight/2);
 }
 
