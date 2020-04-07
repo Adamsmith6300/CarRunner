@@ -213,7 +213,7 @@ void Camera::Pitch(float angle)
 void Camera::RotateY(float angle)
 {
 	// Rotate the basis vectors about the world y-axis.
-
+	yAngle = angle;
 	XMMATRIX R = XMMatrixRotationY(angle);
 
 	XMStoreFloat3(&mRight,   XMVector3TransformNormal(XMLoadFloat3(&mRight), R));
@@ -273,3 +273,6 @@ void Camera::UpdateViewMatrix()
 }
 
 
+float Camera::getAngle() {
+	return yAngle;
+}

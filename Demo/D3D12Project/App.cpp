@@ -466,16 +466,11 @@ void App::OnMouseMove(WPARAM btnState, int x, int y)
 		relLastMousePos.y = relCurrMousePos.y;
 	}
 
-	/*if (abs(deltaMousePos.y) < mClientHeight/2) {
-		relCurrMousePos.y += deltaMousePos.y;
-		int deltaY = relCurrMousePos.y - relLastMousePos.y;
-		float dy = XMConvertToRadians(0.25f * static_cast<float>(deltaY));
-		mCamera.Pitch(dy);
-		relLastMousePos.y = relCurrMousePos.y;
-	}*/
-
 	mLastMousePos.x = x;
 	mLastMousePos.y = y;
+
+	PhysicsEntity* entPhys = FindEnt("player")->GetPhysHolder();
+	entPhys->setAngle(mCamera.getAngle());
 	//SetCursorPos(mClientWidth/2, mClientHeight/2);
 }
 
@@ -893,6 +888,10 @@ void App::AnimateMaterials(const GameTimer& gt)
 void App::UpdateObjectCBs(const GameTimer& gt)
 {
 	auto currObjectCB = mCurrFrameResource->ObjectCB.get();
+
+	/*auto& player = mAllRitems.at(0);
+	XMMATRIX*/
+
 	for (auto& e : mAllRitems)
 	{
 		// Only update the cbuffer data if the constants have changed.  

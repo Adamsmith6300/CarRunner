@@ -35,6 +35,11 @@ void PhysicsEntity::setAngleNegative()
 	fAngle -= 3.14f / 4.0f;
 }
 
+void PhysicsEntity::setAngle(float input)
+{
+	fAngle += input;
+}
+
 void PhysicsEntity::setZIntentPositive()
 {
 	++mIntent.z;
