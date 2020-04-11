@@ -173,6 +173,7 @@ private:
 	thread clientThread;
 	thread serverThread;
 	bool isHost = false;
+	bool gameStarted = false;
 };
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
@@ -237,16 +238,16 @@ int App::Run()
 		{
 			mTimer.Tick();
 
-			if (!mAppPaused)
-			{
+			/*if (!mAppPaused)
+			{*/
 				CalculateFrameStats();
 				Update(mTimer);
 				Draw(mTimer);
-			}
+				/*}
 			else
 			{
 				Sleep(100);
-			}
+			}*/
 		}
 	}
 	delete gameClient;
@@ -319,8 +320,10 @@ void App::OnResize()
 
 void App::Update(const GameTimer& gt)
 {
-    OnKeyboardInput(gt);
-
+	if (!mAppPaused)
+	{
+		OnKeyboardInput(gt);
+	}
     // Cycle through the circular frame resource array.
     mCurrFrameResourceIndex = (mCurrFrameResourceIndex + 1) % gNumFrameResources;
     mCurrFrameResource = mFrameResources[mCurrFrameResourceIndex].get();
@@ -334,6 +337,9 @@ void App::Update(const GameTimer& gt)
         WaitForSingleObject(eventHandle, INFINITE);
         CloseHandle(eventHandle);
     }
+
+	/*std::wstring output = L"Delta:" + to_wstring(gt.DeltaTime()) + L"\n";
+	OutputDebugString(output.c_str());*/
 
 	UpdatePlayer2(gt);
 	AnimateMaterials(gt);

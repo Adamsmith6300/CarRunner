@@ -234,7 +234,7 @@ LRESULT D3DApp::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		if( LOWORD(wParam) == WA_INACTIVE )
 		{
 			mAppPaused = true;
-			mTimer.Stop();
+			//mTimer.Stop();
 		}
 		else
 		{
@@ -304,7 +304,7 @@ LRESULT D3DApp::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	case WM_ENTERSIZEMOVE:
 		mAppPaused = true;
 		mResizing  = true;
-		mTimer.Stop();
+		//mTimer.Stop();
 		return 0;
 
 	// WM_EXITSIZEMOVE is sent when the user releases the resize bars.
