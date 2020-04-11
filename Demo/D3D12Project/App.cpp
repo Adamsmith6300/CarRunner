@@ -152,7 +152,7 @@ private:
 	GeometryGenerator::MeshData skull;
 
 	UINT carsCBIndexStart = 0;
-	UINT carCount = 33;
+	UINT carCount = 39;
 
 	// Render items divided by PSO.
 	std::vector<RenderItem*> mRitemLayer[(int)RenderLayer::Count];
@@ -847,23 +847,30 @@ void App::UpdatePlayer2(const GameTimer& gt) {
  
 void App::MoveCars(const GameTimer& gt) {
 	const float dt = gt.DeltaTime();
-	XMFLOAT3 mov = { 0.0f, 0.0f, 3.0f * dt };
 	for (auto& e : mAllRitems) {
+		XMFLOAT3 mov = { 0.0f, 0.0f, 3.0f * dt };
 		if (e->ObjCBIndex >= carsCBIndexStart && e->ObjCBIndex < carsCBIndexStart+carCount) {
 			string entname = "block" + std::to_string(e->ObjCBIndex);
 			XMMATRIX world = XMLoadFloat4x4(&e->World);
-			//XMMATRIX boxScale = XMMatrixScaling(0.5f, 0.5f, 0.5f);
+			if (e->ObjCBIndex < carsCBIndexStart + carCount / 3 || e->ObjCBIndex >= carsCBIndexStart + (2 * carCount / 3)) {
+				mov = { 0.0f, 0.0f, -3.0f * dt };
+			}
 			XMMATRIX boxOffset = XMMatrixTranslation(mov.x, mov.y, mov.z);
 			XMMATRIX boxWorld = world * boxOffset;
 			if (e->World(3, 2) > (20 * 8.0f)) {
-				XMMATRIX transl = XMMatrixTranslation(5.0f, -0.8f, 0.0f);
-				if(e->ObjCBIndex >= carsCBIndexStart + carCount/3)transl = XMMatrixTranslation(0.0f, -0.8f, 0.0f);
-				if(e->ObjCBIndex >= carsCBIndexStart + (2*carCount / 3))transl = XMMatrixTranslation(-5.0f, -0.8f, 0.0f);
+				XMMATRIX transl = XMMatrixTranslation(0.0f, -0.8f, 0.0f);
 				XMMATRIX resetPos = XMMatrixScaling(0.5f, 0.5f, 0.5f) * transl * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f);
 				XMStoreFloat4x4(&e->World, resetPos);
 				XMStoreFloat4x4(&FindEnt(entname)->World, resetPos);
 			}
-			else {
+			else if(e->World(3, 2) < 0) {
+				XMMATRIX transl = XMMatrixTranslation(5.0f, -0.8f, 0.0f);
+				if (e->ObjCBIndex < carsCBIndexStart + carCount / 3)transl = XMMatrixTranslation(5.0f, -0.8f, 20 * 8.0f);
+				if (e->ObjCBIndex >= carsCBIndexStart + (2 * carCount / 3))transl = XMMatrixTranslation(-5.0f, -0.8f, 20 * 8.0f);
+				XMMATRIX resetPos = XMMatrixScaling(0.5f, 0.5f, 0.5f) * transl;// *XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f);
+				XMStoreFloat4x4(&e->World, resetPos);
+				XMStoreFloat4x4(&FindEnt(entname)->World, resetPos);
+			} else {
 				XMStoreFloat4x4(&e->World, boxWorld);
 				XMStoreFloat4x4(&FindEnt(entname)->World, boxWorld);
 			}
@@ -1806,7 +1813,7 @@ void App::BuildRenderItems()
 	carsCBIndexStart = objCBIndex;
 	for (int i = 0; i < carCount/3; ++i) {
 		auto platformRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(-5.0f, -0.8f, (i * -12.0f)) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
+		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(-5.0f, -0.8f, (i * 12.0f)));
 		XMStoreFloat4x4(&platformRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 		platformRitem->ObjCBIndex = objCBIndex++;
 		string entname = "block" + std::to_string(platformRitem->ObjCBIndex);
@@ -1823,7 +1830,7 @@ void App::BuildRenderItems()
 		////OutputDebugStringA(entname.c_str());
 		////OutputDebugString(L"\n");
 		BuildEnt(entname);
-		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(-5.0f, -0.8f, (i * -12.0f)) /** XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f)*/);
+		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(-5.0f, -0.8f, (i * 12.0f)) /** XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f)*/);
 		FindEnt(entname)->calcAABB(carBoundingVertPosArray);
 
 	}
@@ -1853,7 +1860,7 @@ void App::BuildRenderItems()
 
 	for (int i = 0; i < carCount / 3; ++i) {
 		auto platformRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, -0.8f, (i * -12.0f)) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
+		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, -0.8f, (i * 12.0f)));
 		XMStoreFloat4x4(&platformRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 		platformRitem->ObjCBIndex = objCBIndex++;
 		string entname = "block" + std::to_string(platformRitem->ObjCBIndex);
@@ -1869,7 +1876,7 @@ void App::BuildRenderItems()
 		////OutputDebugStringA(entname.c_str());
 		////OutputDebugString(L"\n");
 		BuildEnt(entname);
-		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, -0.8f, (i * -12.0f)) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
+		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, -0.8f, (i * 12.0f)));
 		FindEnt(entname)->calcAABB(carBoundingVertPosArray);
 	}
 	
