@@ -63,6 +63,7 @@ private:
     virtual void OnMouseMove(WPARAM btnState, int x, int y)override;
 
 	void OnKeyboardInput(const GameTimer& gt);
+	void UpdatePlayer2(const GameTimer& gt);
 	void App::MoveCars(const GameTimer& gt);
 	void AnimateMaterials(const GameTimer& gt);
 	void UpdateObjectCBs(const GameTimer& gt);
@@ -218,10 +219,10 @@ int App::Run()
 
 	mTimer.Reset();
 
-	/*clientThread = thread(&Client::start, gameClient);
 	if (isHost) {
 		serverThread = thread(&Server::start, gameServer);
-	}*/
+	}
+	clientThread = thread(&Client::start, gameClient);
 
 	while (msg.message != WM_QUIT)
 	{
@@ -236,24 +237,24 @@ int App::Run()
 		{
 			mTimer.Tick();
 
-			/*if (!mAppPaused)
-			{*/
+			if (!mAppPaused)
+			{
 				CalculateFrameStats();
 				Update(mTimer);
 				Draw(mTimer);
-			//}
-			/*else
+			}
+			else
 			{
 				Sleep(100);
-			}*/
+			}
 		}
 	}
-	/*delete gameClient;
+	delete gameClient;
 	delete gameServer;
 	if (isHost) {
 		serverThread.join();
 	}
-	clientThread.join();*/
+	clientThread.join();
 	
 	return (int)msg.wParam;
 }
@@ -278,7 +279,7 @@ bool App::Initialize()
 	BuildEnt("player", pos, right, up, look);
 	BuildEnt("block");
 
-	//SetupClientServer();
+	SetupClientServer();
     BuildRootSignature();
 	BuildDescriptorHeaps();
     BuildShadersAndInputLayout();
@@ -334,6 +335,7 @@ void App::Update(const GameTimer& gt)
         CloseHandle(eventHandle);
     }
 
+	UpdatePlayer2(gt);
 	AnimateMaterials(gt);
 	MoveCars(gt);
 	UpdateObjectCBs(gt);
@@ -792,7 +794,6 @@ void App::OnKeyboardInput(const GameTimer& gt)
 	XMMATRIX boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
 	XMMATRIX boxWorld = boxRotate * boxScale * boxOffset;
 
-	//gameClient->sendToServer(pos.x, pos.y, pos.z);
 	firstbox->Geo;
 
 	XMStoreFloat4x4(&FindEnt("player")->World,boxWorld);
@@ -810,6 +811,8 @@ void App::OnKeyboardInput(const GameTimer& gt)
 	collision("player", pos, dt);
 	//FindEnt("player")->SetPosition(pos);
 
+	gameClient->sendToServer(pos.x, pos.y, pos.z);
+
 	//formerly mboxritemmovable
     firstbox->NumFramesDirty++;
 
@@ -826,6 +829,14 @@ void App::OnKeyboardInput(const GameTimer& gt)
         mCamera.SetPosition(FindEnt("player")->getHPos());
     }
     mCamera.UpdateViewMatrix();
+}
+
+
+void App::UpdatePlayer2(const GameTimer& gt) {
+	FindEnt("block")->World = secondbox->World;
+	FindEnt("block")->calcAABB(boxBoundingVertPosArray);
+	calcAABB(boxBoundingVertPosArray, secondbox->World, secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex);
+	secondbox->NumFramesDirty++;
 }
  
 void App::MoveCars(const GameTimer& gt) {
@@ -991,18 +1002,18 @@ void App::LoadTextures()
 }
 
 void App::SetupClientServer() {
-	/*while (true) {
-		if (GetAsyncKeyState('1') & 0x8000) {*/
+	while (true) {
+		if (GetAsyncKeyState('1') & 0x8000) {
 			gameServer = new Server();
 			gameClient = new Client();
-		/*	isHost = true;
+			isHost = true;
 			break;
 		}
 		if (GetAsyncKeyState('2') & 0x8000) {
 			gameClient = new Client();
 			break;
 		}
-	}*/
+	}
 }
 
 void App::BuildDescriptorHeaps()
@@ -1676,18 +1687,18 @@ void App::BuildRenderItems()
 	mRitemLayer[(int)RenderLayer::Sky].push_back(skyRitem.get());
 	mAllRitems.push_back(std::move(skyRitem));
 
-	//if (gameServer != nullptr) {
+	if (gameServer != nullptr) {
 		//can probably remove the translations because we're using pos global
 		box1Translation = XMMatrixTranslation(-2.5f, 2.0f, 0.0f);
 		box2Translation = XMMatrixTranslation(2.5f, 0.5f, 0.0f);
 		pos = { -2.5f, 0.5f, 0.0f };
-	//}
-	//else {
-	//	//can probably remove the translations because we're using pos global
-	//	box1Translation = XMMatrixTranslation(2.5f, 0.5f, 0.0f);
-	//	box2Translation = XMMatrixTranslation(-2.5f, 0.5f, 0.0f);
-	//	pos = { 2.5f, 0.5f, 0.0f };
-	//}
+	}
+	else {
+		//can probably remove the translations because we're using pos global
+		box1Translation = XMMatrixTranslation(2.5f, 0.5f, 0.0f);
+		box2Translation = XMMatrixTranslation(-2.5f, 0.5f, 0.0f);
+		pos = { 2.5f, 0.5f, 0.0f };
+	}
 	auto boxRitem = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box1Translation);
 	XMStoreFloat4x4(&boxRitem->TexTransform, XMMatrixScaling(2.0f, 2.0f, 2.0f));
@@ -1699,8 +1710,6 @@ void App::BuildRenderItems()
 	boxRitem->StartIndexLocation = boxRitem->Geo->DrawArgs["box"].StartIndexLocation;
 	boxRitem->BaseVertexLocation = boxRitem->Geo->DrawArgs["box"].BaseVertexLocation;
     firstbox = boxRitem.get();
-	mRitemLayer[(int)RenderLayer::Opaque].push_back(boxRitem.get());
-	mAllRitems.push_back(std::move(boxRitem));
 
 	FindEnt("player")->calcAABB(boxBoundingVertPosArray);
 	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
@@ -1717,13 +1726,23 @@ void App::BuildRenderItems()
     boxRitem2->StartIndexLocation = boxRitem2->Geo->DrawArgs["box2"].StartIndexLocation;
     boxRitem2->BaseVertexLocation = boxRitem2->Geo->DrawArgs["box2"].BaseVertexLocation;
 	secondbox = boxRitem2.get();
-	//gameClient->setPlayer(boxRitem2.get());
-	mRitemLayer[(int)RenderLayer::Opaque].push_back(boxRitem2.get());
-    mAllRitems.push_back(std::move(boxRitem2));
-
 	//OutputDebugString(L"CalcAABB of block entity\n");
 	FindEnt("block")->calcAABB(boxBoundingVertPosArray);
 	calcAABB(boxBoundingVertPosArray, secondbox->World, secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex);
+
+
+	//if (gameServer != nullptr) {
+		gameClient->setPlayer(boxRitem2.get());
+	/*}
+	else {
+		gameClient->setPlayer(boxRitem.get());
+	}*/
+
+	mRitemLayer[(int)RenderLayer::Opaque].push_back(boxRitem.get());
+	mAllRitems.push_back(std::move(boxRitem));
+	mRitemLayer[(int)RenderLayer::Opaque].push_back(boxRitem2.get());
+    mAllRitems.push_back(std::move(boxRitem2));
+
 
 
 	BuildEnt("startplatform");

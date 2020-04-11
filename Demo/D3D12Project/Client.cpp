@@ -39,6 +39,8 @@ Client::Client() {
 		WSACleanup();
 		return;
 	}
+	consoleOutput = L"Connected to server!\n";
+	::OutputDebugString(consoleOutput.c_str());
 	running = true;
 }
 
@@ -98,7 +100,7 @@ void Client::start() {
 			////calculate new bounding box of first box
 			//calcAABB(boxBoundingVertPosArray, otherPlayer->World, otherPlayer->boundingboxminvertex, otherPlayer->boundingboxmaxvertex);
 			////formerly mboxritemmovable
-			otherPlayer->NumFramesDirty++;
+			//otherPlayer->NumFramesDirty++;
 		}
 	}
 }
