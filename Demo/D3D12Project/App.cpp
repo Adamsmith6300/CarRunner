@@ -121,7 +121,7 @@ private:
 
 	std::vector<std::unique_ptr<RenderItem>> mAllRitems;
     RenderItem* mBoxItemMovable;
-    XMFLOAT3 pos = { 0.0f, 0.0f, 0.0f };
+    XMFLOAT3 pos = { -2.5f, 0.5f, 0.0f };
     XMFLOAT3 right = {pos.x+1, pos.y, pos.z};
     XMFLOAT3 up = { pos.x, pos.y+1, pos.z };
     XMFLOAT3 look = { pos.x, pos.y, pos.z+1 };
@@ -173,7 +173,7 @@ private:
 	thread clientThread;
 	thread serverThread;
 	bool isHost = false;
-	bool gameStarted = false;
+	//bool gameStarted = false;
 };
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
@@ -237,14 +237,15 @@ int App::Run()
 		else
 		{
 			mTimer.Tick();
+			
+			if (isHost && GetAsyncKeyState('4') & 0x8000 && !gameClient->gameStarted) {
+				gameServer->sendStartGame();
+			}
 
-			/*if (!mAppPaused)
-			{*/
-				CalculateFrameStats();
-				Update(mTimer);
-				Draw(mTimer);
-				/*}
-			else
+			CalculateFrameStats();
+			Update(mTimer);
+			Draw(mTimer);
+			/*else
 			{
 				Sleep(100);
 			}*/
@@ -320,7 +321,7 @@ void App::OnResize()
 
 void App::Update(const GameTimer& gt)
 {
-	if (!mAppPaused)
+	if (!mAppPaused )//&& gameClient->gameStarted
 	{
 		OnKeyboardInput(gt);
 	}
@@ -340,10 +341,11 @@ void App::Update(const GameTimer& gt)
 
 	/*std::wstring output = L"Delta:" + to_wstring(gt.DeltaTime()) + L"\n";
 	OutputDebugString(output.c_str());*/
-
+	
 	UpdatePlayer2(gt);
 	AnimateMaterials(gt);
-	MoveCars(gt);
+	
+	if(gameClient->gameStarted)MoveCars(gt);
 	UpdateObjectCBs(gt);
 	UpdateMaterialBuffer(gt);
 	UpdateMainPassCB(gt);
@@ -729,107 +731,102 @@ void App::collision(string ent, XMFLOAT3& pos, float dt) {
 
 void App::OnKeyboardInput(const GameTimer& gt)
 {
-    const float dt = gt.DeltaTime();
-	PhysicsEntity* entPhys = FindEnt("player")->GetPhysHolder();
+	if (gameClient->gameStarted) {
+		const float dt = gt.DeltaTime();
+		PhysicsEntity* entPhys = FindEnt("player")->GetPhysHolder();
 
+		float maxSpeed = 15.0f * dt;
+		float boxSpeedX = maxSpeed,
+			boxSpeedZ = maxSpeed;
+		bool moveZ = false, moveX = false;
 
-	float maxSpeed = 15.0f * dt;
-    float boxSpeedX = maxSpeed, 
-		  boxSpeedZ = maxSpeed;
-	bool moveZ = false, moveX = false;
-
-	if (GetAsyncKeyState('Q') & 0x8000) {
-		entPhys->setAngleNegative();
-	}
-	if (GetAsyncKeyState('E') & 0x8000) {
-		entPhys->setAnglePositive();		
-		//keyboardInput.y -= boxSpeed;
-	}
-
-	if (GetAsyncKeyState('W') & 0x8000) {
-		entPhys->setZIntentPositive();
-		moveZ = true;
-		//keyboardInput.z += boxSpeed;
-	}
-	if (GetAsyncKeyState('S') & 0x8000) {
-		entPhys->setZIntentNegative();
-		moveZ = true;
-		//keyboardInput.z -= boxSpeed;
-	}
-	if (GetAsyncKeyState('A') & 0x8000){
-		entPhys->setXIntentNegative();
-		moveX = true;
-		//keyboardInput.x -= boxSpeed;
-	}
-	if (GetAsyncKeyState('D') & 0x8000) {
-		entPhys->setXIntentPositive();
-		moveX = true;
-		//keyboardInput.x += boxSpeed;
-	}
-	if (GetAsyncKeyState(' ') & 0x8000) {
-		entPhys->decrementJump();		
-	}
-
-	if (moveZ) {
-		float tempT = FindEnt("player")->getCountDownZ() - decel;
-		if (tempT > 0) {
-			FindEnt("player")->setCountDownZ(tempT);
+		if (GetAsyncKeyState('Q') & 0x8000) {
+			entPhys->setAngleNegative();
 		}
-		else {
-			FindEnt("player")->resetCountDownZ(true);			
+		if (GetAsyncKeyState('E') & 0x8000) {
+			entPhys->setAnglePositive();
+			//keyboardInput.y -= boxSpeed;
 		}
-		boxSpeedZ *= cos(FindEnt("player")->getCountDownZ());
+
+		if (GetAsyncKeyState('W') & 0x8000) {
+			entPhys->setZIntentPositive();
+			moveZ = true;
+			//keyboardInput.z += boxSpeed;
+		}
+		if (GetAsyncKeyState('S') & 0x8000) {
+			entPhys->setZIntentNegative();
+			moveZ = true;
+			//keyboardInput.z -= boxSpeed;
+		}
+		if (GetAsyncKeyState('A') & 0x8000) {
+			entPhys->setXIntentNegative();
+			moveX = true;
+			//keyboardInput.x -= boxSpeed;
+		}
+		if (GetAsyncKeyState('D') & 0x8000) {
+			entPhys->setXIntentPositive();
+			moveX = true;
+			//keyboardInput.x += boxSpeed;
+		}
+		if (GetAsyncKeyState(' ') & 0x8000) {
+			entPhys->decrementJump();
+		}
+
+		if (moveZ) {
+			float tempT = FindEnt("player")->getCountDownZ() - decel;
+			if (tempT > 0) {
+				FindEnt("player")->setCountDownZ(tempT);
+			}
+			else {
+				FindEnt("player")->resetCountDownZ(true);
+			}
+			boxSpeedZ *= cos(FindEnt("player")->getCountDownZ());
+		}
+		else { FindEnt("player")->resetCountDownZ(false); }
+
+		if (moveX) {
+			float tempT = FindEnt("player")->getCountDownX() - decel;
+			if (tempT > 0) {
+				FindEnt("player")->setCountDownX(tempT);
+			}
+			else {
+				FindEnt("player")->resetCountDownX(true);
+			}
+			boxSpeedX *= cos(FindEnt("player")->getCountDownX());
+		}
+		else { FindEnt("player")->resetCountDownX(false); }
+
+		//box translation//
+		XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
+		XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
+		XMMATRIX boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
+		XMMATRIX boxWorld = boxRotate * boxScale * boxOffset;
+
+		firstbox->Geo;
+
+		XMStoreFloat4x4(&FindEnt("player")->World, boxWorld);
+		XMStoreFloat4x4(&firstbox->World, boxWorld);
+
+		FindEnt("player")->calcAABB(boxBoundingVertPosArray);
+
+		//calculate new bounding box of first box
+		calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
+
+		//Physics::XYZPhysics(pos, entPhys, boxSpeed);
+		Physics::XYZPhysics(pos, entPhys, 5.0f * dt, boxSpeedX, boxSpeedZ);
+		FindEnt("player")->SetPosition(pos);
+
+		collision("player", pos, dt);
+		//FindEnt("player")->SetPosition(pos);
+
+		
+		gameClient->sendToServer(pos.x, pos.y, pos.z);
+		
+
+		//formerly mboxritemmovable
+		firstbox->NumFramesDirty++;
+
 	}
-	else{ FindEnt("player")->resetCountDownZ(false); }
-
-	if (moveX) {
-		float tempT = FindEnt("player")->getCountDownX() - decel;
-		if (tempT > 0) {
-			FindEnt("player")->setCountDownX(tempT);
-		}
-		else {
-			FindEnt("player")->resetCountDownX(true);
-		}
-		boxSpeedX *= cos(FindEnt("player")->getCountDownX());
-	}
-	else { FindEnt("player")->resetCountDownX(false); }
-	
-	//box translation//
-	XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
-	XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
-	XMMATRIX boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
-	XMMATRIX boxWorld = boxRotate * boxScale * boxOffset;
-
-	firstbox->Geo;
-
-	XMStoreFloat4x4(&FindEnt("player")->World,boxWorld);
-	XMStoreFloat4x4(&firstbox->World, boxWorld);
-
-	FindEnt("player")->calcAABB(boxBoundingVertPosArray);
-
-	//calculate new bounding box of first box
-	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
-
-	//Physics::XYZPhysics(pos, entPhys, boxSpeed);
-	Physics::XYZPhysics(pos, entPhys, 5.0f * dt, boxSpeedX, boxSpeedZ);
-	FindEnt("player")->SetPosition(pos);
-
-	collision("player", pos, dt);
-	//FindEnt("player")->SetPosition(pos);
-
-	gameClient->sendToServer(pos.x, pos.y, pos.z);
-
-	//formerly mboxritemmovable
-    firstbox->NumFramesDirty++;
-
-	// boxSpeed 
-	//boxSpeed = 5.0f * dt;
-
-    /*ent.SetPosition(pos);
-
-	if (!isTopDown) {
-		mCamera.SetPosition(ent.getHPos());
-	}*/
 
     if (!isTopDown) {
         mCamera.SetPosition(FindEnt("player")->getHPos());
@@ -1700,7 +1697,7 @@ void App::BuildRenderItems()
 	mRitemLayer[(int)RenderLayer::Sky].push_back(skyRitem.get());
 	mAllRitems.push_back(std::move(skyRitem));
 
-	if (gameServer != nullptr) {
+	if (isHost) {
 		//can probably remove the translations because we're using pos global
 		box1Translation = XMMatrixTranslation(-2.5f, 2.0f, 0.0f);
 		box2Translation = XMMatrixTranslation(2.5f, 0.5f, 0.0f);
@@ -1714,6 +1711,7 @@ void App::BuildRenderItems()
 	}
 	auto boxRitem = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box1Translation);
+	XMStoreFloat4x4(&FindEnt("player")->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box1Translation);
 	XMStoreFloat4x4(&boxRitem->TexTransform, XMMatrixScaling(2.0f, 2.0f, 2.0f));
 	boxRitem->ObjCBIndex = objCBIndex++;
 	boxRitem->Mat = mMaterials["bricks0"].get();
@@ -1728,9 +1726,9 @@ void App::BuildRenderItems()
 	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
 	
     auto boxRitem2 = std::make_unique<RenderItem>();
-    XMStoreFloat4x4(&boxRitem2->World, XMMatrixScaling(2.0f, 1.0f, 2.0f) * box2Translation);
-	XMStoreFloat4x4(&FindEnt("block")->World, XMMatrixScaling(2.0f, 1.0f, 2.0f) * box2Translation);
-	XMStoreFloat4x4(&boxRitem2->TexTransform, XMMatrixScaling(2.0f, 1.0f, 2.0f));
+    XMStoreFloat4x4(&boxRitem2->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box2Translation);
+	XMStoreFloat4x4(&FindEnt("block")->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box2Translation);
+	XMStoreFloat4x4(&boxRitem2->TexTransform, XMMatrixScaling(2.0f, 2.0f, 2.0f));
 	boxRitem2->ObjCBIndex = objCBIndex++;
 	boxRitem2->Mat = mMaterials["bricks0"].get();
     boxRitem2->Geo = mGeometries["shapeGeo"].get();
@@ -1743,13 +1741,7 @@ void App::BuildRenderItems()
 	FindEnt("block")->calcAABB(boxBoundingVertPosArray);
 	calcAABB(boxBoundingVertPosArray, secondbox->World, secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex);
 
-
-	//if (gameServer != nullptr) {
-		gameClient->setPlayer(boxRitem2.get());
-	/*}
-	else {
-		gameClient->setPlayer(boxRitem.get());
-	}*/
+	gameClient->setPlayer(boxRitem2.get());
 
 	mRitemLayer[(int)RenderLayer::Opaque].push_back(boxRitem.get());
 	mAllRitems.push_back(std::move(boxRitem));

@@ -20,6 +20,8 @@ public:
     wstring charMsgToWString(string& str);
     void setPlayer(RenderItem* oth) { otherPlayer = oth; };
 
+    bool gameStarted = false;
+
 private:
     string ipAddress;			// IP Address of the server
     int port;						// Listening port # on the server
