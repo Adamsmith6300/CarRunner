@@ -9,6 +9,9 @@ using Microsoft::WRL::ComPtr;
 using namespace std;
 using namespace DirectX;
 
+#define IDC_STATIC_TEXT 1000
+HWND hWndStatic;
+
 LRESULT CALLBACK
 MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -242,7 +245,6 @@ LRESULT D3DApp::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			mTimer.Start();
 		}
 		return 0;
-
 	// WM_SIZE is sent when the user resizes the window.  
 	case WM_SIZE:
 		// Save the new client area dimensions.
@@ -393,6 +395,8 @@ bool D3DApp::InitMainWindow()
 		MessageBox(0, L"CreateWindow Failed.", 0, 0);
 		return false;
 	}
+	HWND hWndEdit = CreateWindow(TEXT("Static"), TEXT("\n Press 1 to Create Server.\n\n Press 2 to Connect as Client.\n"), WS_CHILD | WS_VISIBLE | WS_BORDER, (mClientWidth/2) - 125, (mClientHeight / 2) - 100, 250, 85, mhMainWnd, NULL, NULL, NULL);
+	
 
 	ShowWindow(mhMainWnd, SW_SHOW);
 	UpdateWindow(mhMainWnd);

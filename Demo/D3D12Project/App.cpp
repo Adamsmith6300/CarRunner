@@ -52,6 +52,7 @@ public:
 
     virtual bool Initialize()override;
 	virtual int Run()override;
+	virtual void CalculateFrameStats();
 
 private:
     virtual void OnResize()override;
@@ -64,7 +65,7 @@ private:
 
 	void OnKeyboardInput(const GameTimer& gt);
 	void UpdatePlayer2(const GameTimer& gt);
-	void App::MoveCars(const GameTimer& gt);
+	void MoveCars(const GameTimer& gt);
 	void AnimateMaterials(const GameTimer& gt);
 	void UpdateObjectCBs(const GameTimer& gt);
 	void UpdateMaterialBuffer(const GameTimer& gt);
@@ -166,6 +167,7 @@ private:
 	Camera mCamera;
 
     POINT mLastMousePos;
+	Entity* winner = nullptr;
 
 	//networking
 	Server* gameServer = nullptr;
@@ -173,7 +175,6 @@ private:
 	thread clientThread;
 	thread serverThread;
 	bool isHost = false;
-	//bool gameStarted = false;
 };
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
@@ -238,17 +239,13 @@ int App::Run()
 		{
 			mTimer.Tick();
 			
-			if (isHost && GetAsyncKeyState('4') & 0x8000 && !gameClient->gameStarted) {
+			if (isHost && GetAsyncKeyState('3') & 0x8000 && !gameClient->gameStarted && winner == nullptr) {
 				gameServer->sendStartGame();
 			}
 
 			CalculateFrameStats();
 			Update(mTimer);
 			Draw(mTimer);
-			/*else
-			{
-				Sleep(100);
-			}*/
 		}
 	}
 	delete gameClient;
@@ -260,6 +257,51 @@ int App::Run()
 	
 	return (int)msg.wParam;
 }
+
+void App::CalculateFrameStats()
+{
+	// Code computes the average frames per second, and also the 
+	// average time it takes to render one frame.  These stats 
+	// are appended to the window caption bar.
+
+	static int frameCnt = 0;
+	static float timeElapsed = 0.0f;
+
+	frameCnt++;
+
+	// Compute averages over one second period.
+	if ((mTimer.TotalTime() - timeElapsed) >= 1.0f)
+	{
+		float fps = (float)frameCnt; // fps = frameCnt / 1
+		float mspf = 1000.0f / fps;
+
+		wstring fpsStr = to_wstring(fps);
+		wstring mspfStr = to_wstring(mspf);
+
+		wstring playerMessage = L"Run!";
+		if (!gameClient->gameStarted) {
+			if (isHost) {
+				playerMessage = L"Press 3 to start the game...";
+			}
+			else {
+				playerMessage = L"Waiting on host to start the game...";
+			}
+		}
+
+
+		wstring windowText = mMainWndCaption +
+			L"    fps: " + fpsStr +
+			L"   mspf: " + mspfStr + L"            " + playerMessage;
+
+		SetWindowText(mhMainWnd, windowText.c_str());
+
+		// Reset for next average.
+		frameCnt = 0;
+		timeElapsed += 1.0f;
+	}
+}
+
+
 bool App::Initialize()
 {
     
@@ -321,7 +363,7 @@ void App::OnResize()
 
 void App::Update(const GameTimer& gt)
 {
-	if (!mAppPaused )//&& gameClient->gameStarted
+	if (!mAppPaused)
 	{
 		OnKeyboardInput(gt);
 	}
@@ -721,6 +763,12 @@ void App::collision(string ent, XMFLOAT3& pos, float dt) {
 
 			FindEnt(ent)->calcAABB(boxBoundingVertPosArray);
 			calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
+
+			if (it->first.compare("endplatform") == 0) {
+				gameClient->gameStarted = false;
+				winner = it->second;
+			}
+
 		}
 		else {
 			//OutputDebugString(L"No collision \n");
@@ -965,7 +1013,16 @@ void App::UpdateMainPassCB(const GameTimer& gt)
 	mMainPassCB.Lights[1].Strength = { 0.3f, 0.3f, 0.3f };
 	mMainPassCB.Lights[2].Direction = { 0.0f, -0.707f, -0.707f };
 	mMainPassCB.Lights[2].Strength = { 0.15f, 0.15f, 0.15f };
-	//mMainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
+	if (!gameClient->gameStarted && winner == nullptr) {
+		mMainPassCB.Lights[0].Strength = { 1.0f, 0.0f, 0.0f };
+		mMainPassCB.Lights[1].Strength = { 1.0f, 0.0f, 0.0f };
+		mMainPassCB.Lights[2].Strength = { 1.0f, 0.0f, 0.0f };
+	}
+	if (winner != nullptr) {
+		mMainPassCB.Lights[0].Strength = { 0.0f, 1.0f, 0.0f };
+		mMainPassCB.Lights[1].Strength = { 0.0f, 1.0f, 0.0f };
+		mMainPassCB.Lights[2].Strength = { 0.0f, 1.0f, 0.0f };
+	}
 	for (int i = 3; i < 6; ++i) {
 		//mMainPassCB.Lights[i].Direction = { 0.0f, -5.0f, -10.0f };
 		mMainPassCB.Lights[i].Strength = { 1.0f, 0.0f, 0.0f };
