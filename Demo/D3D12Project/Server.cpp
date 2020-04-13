@@ -51,7 +51,7 @@ Server::~Server() {
 		FD_CLR(sock, &master);
 		closesocket(sock);
 	}
-	// Shutdown winsock
+	
 	WSACleanup();
 	consoleOutput = L"Server shutdown\n";
 	::OutputDebugString(consoleOutput.c_str());
@@ -60,57 +60,45 @@ Server::~Server() {
 }
 
 void Server::start() {
-	//future<void> futureObj
-	//while (futureObj.wait_for(std::chrono::milliseconds(1)) == std::future_status::timeout) {
 	while(running){
 		fd_set copy = master;
 		TIMEVAL tv;
 		tv.tv_usec = 10000;
 
-		// See who's talking to us
 		int socketCount = select(0, &copy, nullptr, nullptr, &tv);
 
 		/*consoleOutput = L"SOCKETCOUNT-------->"+ std::to_wstring(socketCount)+L"\n";
 		::OutputDebugString(consoleOutput.c_str());*/
 
-		// Loop through all the current connections / potential connect
 		for (int i = 0; i < socketCount; i++)
 		{
-			// Makes things easy for us doing this assignment
 			SOCKET sock = copy.fd_array[i];
 
-			// Is it an inbound communication?
 			if (sock == listening)
 			{
-				// Accept a new connection
 				SOCKET client = accept(listening, nullptr, nullptr);
 
-				// Add the new connection to the list of connected clients
 				FD_SET(client, &master);
 
 				// Send a welcome message to the connected client
 				/*string welcomeMsg = "Welcome to the Game Server!\r\n";
 				send(client, welcomeMsg.c_str(), welcomeMsg.size() + 1, 0);*/
 			}
-			else // It's an inbound message
+			else 
 			{
 				char buf[4096];
 				ZeroMemory(buf, 4096);
 
-				// Receive message
 				int bytesIn = recv(sock, buf, 4096, 0);
 				if (bytesIn <= 0)
 				{
-					// Drop the client
 					closesocket(sock);
 					FD_CLR(sock, &master);
 				}
 				else
 				{
-					// Check to see if it's a command. \quit kills the server
 					if (buf[0] == '\\')
 					{
-						// Is the command quit? 
 						string cmd = string(buf, bytesIn);
 						if (cmd == "\\quit")
 						{
@@ -118,7 +106,6 @@ void Server::start() {
 							break;
 						}
 
-						// Unknown command
 						continue;
 					}
 
@@ -126,7 +113,6 @@ void Server::start() {
 					consoleOutput = L"Client (srv)> " + charMsgToWString(msg) + L"\n";
 					OutputDebugString(consoleOutput.c_str());*/
 
-					// Send message to other clients, and definately NOT the listening socket
 					for (int i = 0; i < master.fd_count; i++)
 					{
 						SOCKET outSock = master.fd_array[i];
@@ -144,6 +130,26 @@ void Server::start() {
 		}
 	}
 }
+
+void Server::sendStartGame() {
+	
+	for (int i = 0; i < master.fd_count; i++)
+	{
+		SOCKET sock = master.fd_array[i];
+
+		if (sock != listening)
+		{
+			char buf[] = "#####";
+			const char* msg = buf;
+			/*string msgStr = string(buf, 0, sizeof buf);
+			consoleOutput = L"SENDING..." + charMsgToWString(msgStr) + L"\n";
+			OutputDebugString(consoleOutput.c_str());*/
+
+			send(sock, msg, sizeof buf, 0);
+		}
+	}
+}
+
 
 wstring Server::charMsgToWString(string& str) {
 	int size_needed = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);

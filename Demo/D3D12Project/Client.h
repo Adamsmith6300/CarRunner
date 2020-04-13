@@ -18,7 +18,9 @@ public:
     void start();
     void sendToServer(float x, float y, float z);
     wstring charMsgToWString(string& str);
-    void setPlayer(RenderItem* oth) { otherPlayer = std::move(oth); };
+    void setPlayer(RenderItem* oth) { otherPlayer = oth; };
+
+    bool gameStarted = false;
 
 private:
     string ipAddress;			// IP Address of the server

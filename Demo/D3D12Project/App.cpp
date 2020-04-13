@@ -52,6 +52,7 @@ public:
 
     virtual bool Initialize()override;
 	virtual int Run()override;
+	virtual void CalculateFrameStats();
 
 private:
     virtual void OnResize()override;
@@ -63,7 +64,8 @@ private:
     virtual void OnMouseMove(WPARAM btnState, int x, int y)override;
 
 	void OnKeyboardInput(const GameTimer& gt);
-	void App::MoveCars(const GameTimer& gt);
+	void UpdatePlayer2(const GameTimer& gt);
+	void MoveCars(const GameTimer& gt);
 	void AnimateMaterials(const GameTimer& gt);
 	void UpdateObjectCBs(const GameTimer& gt);
 	void UpdateMaterialBuffer(const GameTimer& gt);
@@ -120,7 +122,7 @@ private:
 
 	std::vector<std::unique_ptr<RenderItem>> mAllRitems;
     RenderItem* mBoxItemMovable;
-    XMFLOAT3 pos = { 0.0f, 0.0f, 0.0f };
+    XMFLOAT3 pos = { -2.5f, 0.5f, 0.0f };
     XMFLOAT3 right = {pos.x+1, pos.y, pos.z};
     XMFLOAT3 up = { pos.x, pos.y+1, pos.z };
     XMFLOAT3 look = { pos.x, pos.y, pos.z+1 };
@@ -151,7 +153,7 @@ private:
 	GeometryGenerator::MeshData skull;
 
 	UINT carsCBIndexStart = 0;
-	UINT carCount = 33;
+	UINT carCount = 39;
 
 	// Render items divided by PSO.
 	std::vector<RenderItem*> mRitemLayer[(int)RenderLayer::Count];
@@ -165,6 +167,7 @@ private:
 	Camera mCamera;
 
     POINT mLastMousePos;
+	Entity* winner = nullptr;
 
 	//networking
 	Server* gameServer = nullptr;
@@ -218,10 +221,10 @@ int App::Run()
 
 	mTimer.Reset();
 
-	/*clientThread = thread(&Client::start, gameClient);
 	if (isHost) {
 		serverThread = thread(&Server::start, gameServer);
-	}*/
+	}
+	clientThread = thread(&Client::start, gameClient);
 
 	while (msg.message != WM_QUIT)
 	{
@@ -235,28 +238,70 @@ int App::Run()
 		else
 		{
 			mTimer.Tick();
+			
+			if (isHost && GetAsyncKeyState('3') & 0x8000 && !gameClient->gameStarted && winner == nullptr) {
+				gameServer->sendStartGame();
+			}
 
-			/*if (!mAppPaused)
-			{*/
-				CalculateFrameStats();
-				Update(mTimer);
-				Draw(mTimer);
-			//}
-			/*else
-			{
-				Sleep(100);
-			}*/
+			CalculateFrameStats();
+			Update(mTimer);
+			Draw(mTimer);
 		}
 	}
-	/*delete gameClient;
+	delete gameClient;
 	delete gameServer;
 	if (isHost) {
 		serverThread.join();
 	}
-	clientThread.join();*/
+	clientThread.join();
 	
 	return (int)msg.wParam;
 }
+
+void App::CalculateFrameStats()
+{
+	// Code computes the average frames per second, and also the 
+	// average time it takes to render one frame.  These stats 
+	// are appended to the window caption bar.
+
+	static int frameCnt = 0;
+	static float timeElapsed = 0.0f;
+
+	frameCnt++;
+
+	// Compute averages over one second period.
+	if ((mTimer.TotalTime() - timeElapsed) >= 1.0f)
+	{
+		float fps = (float)frameCnt; // fps = frameCnt / 1
+		float mspf = 1000.0f / fps;
+
+		wstring fpsStr = to_wstring(fps);
+		wstring mspfStr = to_wstring(mspf);
+
+		wstring playerMessage = L"Run!";
+		if (!gameClient->gameStarted) {
+			if (isHost) {
+				playerMessage = L"Press 3 to start the game...";
+			}
+			else {
+				playerMessage = L"Waiting on host to start the game...";
+			}
+		}
+
+
+		wstring windowText = mMainWndCaption +
+			L"    fps: " + fpsStr +
+			L"   mspf: " + mspfStr + L"            " + playerMessage;
+
+		SetWindowText(mhMainWnd, windowText.c_str());
+
+		// Reset for next average.
+		frameCnt = 0;
+		timeElapsed += 1.0f;
+	}
+}
+
+
 bool App::Initialize()
 {
     
@@ -278,7 +323,7 @@ bool App::Initialize()
 	BuildEnt("player", pos, right, up, look);
 	BuildEnt("block");
 
-	//SetupClientServer();
+	SetupClientServer();
     BuildRootSignature();
 	BuildDescriptorHeaps();
     BuildShadersAndInputLayout();
@@ -318,8 +363,10 @@ void App::OnResize()
 
 void App::Update(const GameTimer& gt)
 {
-    OnKeyboardInput(gt);
-
+	if (!mAppPaused)
+	{
+		OnKeyboardInput(gt);
+	}
     // Cycle through the circular frame resource array.
     mCurrFrameResourceIndex = (mCurrFrameResourceIndex + 1) % gNumFrameResources;
     mCurrFrameResource = mFrameResources[mCurrFrameResourceIndex].get();
@@ -334,8 +381,13 @@ void App::Update(const GameTimer& gt)
         CloseHandle(eventHandle);
     }
 
+	/*std::wstring output = L"Delta:" + to_wstring(gt.DeltaTime()) + L"\n";
+	OutputDebugString(output.c_str());*/
+	
+	UpdatePlayer2(gt);
 	AnimateMaterials(gt);
-	MoveCars(gt);
+	
+	if(gameClient->gameStarted)MoveCars(gt);
 	UpdateObjectCBs(gt);
 	UpdateMaterialBuffer(gt);
 	UpdateMainPassCB(gt);
@@ -711,6 +763,12 @@ void App::collision(string ent, XMFLOAT3& pos, float dt) {
 
 			FindEnt(ent)->calcAABB(boxBoundingVertPosArray);
 			calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
+
+			if (it->first.compare("endplatform") == 0) {
+				gameClient->gameStarted = false;
+				winner = it->second;
+			}
+
 		}
 		else {
 			//OutputDebugString(L"No collision \n");
@@ -721,132 +779,143 @@ void App::collision(string ent, XMFLOAT3& pos, float dt) {
 
 void App::OnKeyboardInput(const GameTimer& gt)
 {
-    const float dt = gt.DeltaTime();
-	PhysicsEntity* entPhys = FindEnt("player")->GetPhysHolder();
+	if (gameClient->gameStarted) {
+		const float dt = gt.DeltaTime();
+		PhysicsEntity* entPhys = FindEnt("player")->GetPhysHolder();
 
+		float maxSpeed = 15.0f * dt;
+		float boxSpeedX = maxSpeed,
+			boxSpeedZ = maxSpeed;
+		bool moveZ = false, moveX = false;
 
-	float maxSpeed = 15.0f * dt;
-    float boxSpeedX = maxSpeed, 
-		  boxSpeedZ = maxSpeed;
-	bool moveZ = false, moveX = false;
-
-	if (GetAsyncKeyState('Q') & 0x8000) {
-		entPhys->setAngleNegative();
-	}
-	if (GetAsyncKeyState('E') & 0x8000) {
-		entPhys->setAnglePositive();		
-		//keyboardInput.y -= boxSpeed;
-	}
-
-	if (GetAsyncKeyState('W') & 0x8000) {
-		entPhys->setZIntentPositive();
-		moveZ = true;
-		//keyboardInput.z += boxSpeed;
-	}
-	if (GetAsyncKeyState('S') & 0x8000) {
-		entPhys->setZIntentNegative();
-		moveZ = true;
-		//keyboardInput.z -= boxSpeed;
-	}
-	if (GetAsyncKeyState('A') & 0x8000){
-		entPhys->setXIntentNegative();
-		moveX = true;
-		//keyboardInput.x -= boxSpeed;
-	}
-	if (GetAsyncKeyState('D') & 0x8000) {
-		entPhys->setXIntentPositive();
-		moveX = true;
-		//keyboardInput.x += boxSpeed;
-	}
-	if (GetAsyncKeyState(' ') & 0x8000) {
-		entPhys->decrementJump();		
-	}
-
-	if (moveZ) {
-		float tempT = FindEnt("player")->getCountDownZ() - decel;
-		if (tempT > 0) {
-			FindEnt("player")->setCountDownZ(tempT);
+		if (GetAsyncKeyState('Q') & 0x8000) {
+			entPhys->setAngleNegative();
 		}
-		else {
-			FindEnt("player")->resetCountDownZ(true);			
+		if (GetAsyncKeyState('E') & 0x8000) {
+			entPhys->setAnglePositive();
+			//keyboardInput.y -= boxSpeed;
 		}
-		boxSpeedZ *= cos(FindEnt("player")->getCountDownZ());
+
+		if (GetAsyncKeyState('W') & 0x8000) {
+			entPhys->setZIntentPositive();
+			moveZ = true;
+			//keyboardInput.z += boxSpeed;
+		}
+		if (GetAsyncKeyState('S') & 0x8000) {
+			entPhys->setZIntentNegative();
+			moveZ = true;
+			//keyboardInput.z -= boxSpeed;
+		}
+		if (GetAsyncKeyState('A') & 0x8000) {
+			entPhys->setXIntentNegative();
+			moveX = true;
+			//keyboardInput.x -= boxSpeed;
+		}
+		if (GetAsyncKeyState('D') & 0x8000) {
+			entPhys->setXIntentPositive();
+			moveX = true;
+			//keyboardInput.x += boxSpeed;
+		}
+		if (GetAsyncKeyState(' ') & 0x8000) {
+			entPhys->decrementJump();
+		}
+
+		if (moveZ) {
+			float tempT = FindEnt("player")->getCountDownZ() - decel;
+			if (tempT > 0) {
+				FindEnt("player")->setCountDownZ(tempT);
+			}
+			else {
+				FindEnt("player")->resetCountDownZ(true);
+			}
+			boxSpeedZ *= cos(FindEnt("player")->getCountDownZ());
+		}
+		else { FindEnt("player")->resetCountDownZ(false); }
+
+		if (moveX) {
+			float tempT = FindEnt("player")->getCountDownX() - decel;
+			if (tempT > 0) {
+				FindEnt("player")->setCountDownX(tempT);
+			}
+			else {
+				FindEnt("player")->resetCountDownX(true);
+			}
+			boxSpeedX *= cos(FindEnt("player")->getCountDownX());
+		}
+		else { FindEnt("player")->resetCountDownX(false); }
+
+		//box translation//
+		XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
+		XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
+		XMMATRIX boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
+		XMMATRIX boxWorld = boxRotate * boxScale * boxOffset;
+
+		firstbox->Geo;
+
+		XMStoreFloat4x4(&FindEnt("player")->World, boxWorld);
+		XMStoreFloat4x4(&firstbox->World, boxWorld);
+
+		FindEnt("player")->calcAABB(boxBoundingVertPosArray);
+
+		//calculate new bounding box of first box
+		calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
+
+		//Physics::XYZPhysics(pos, entPhys, boxSpeed);
+		Physics::XYZPhysics(pos, entPhys, 5.0f * dt, boxSpeedX, boxSpeedZ);
+		FindEnt("player")->SetPosition(pos);
+
+		collision("player", pos, dt);
+		//FindEnt("player")->SetPosition(pos);
+
+		
+		gameClient->sendToServer(pos.x, pos.y, pos.z);
+		
+
+		//formerly mboxritemmovable
+		firstbox->NumFramesDirty++;
+
 	}
-	else{ FindEnt("player")->resetCountDownZ(false); }
-
-	if (moveX) {
-		float tempT = FindEnt("player")->getCountDownX() - decel;
-		if (tempT > 0) {
-			FindEnt("player")->setCountDownX(tempT);
-		}
-		else {
-			FindEnt("player")->resetCountDownX(true);
-		}
-		boxSpeedX *= cos(FindEnt("player")->getCountDownX());
-	}
-	else { FindEnt("player")->resetCountDownX(false); }
-	
-	//box translation//
-	XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
-	XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
-	XMMATRIX boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
-	XMMATRIX boxWorld = boxRotate * boxScale * boxOffset;
-
-	//gameClient->sendToServer(pos.x, pos.y, pos.z);
-	firstbox->Geo;
-
-	XMStoreFloat4x4(&FindEnt("player")->World,boxWorld);
-	XMStoreFloat4x4(&firstbox->World, boxWorld);
-
-	FindEnt("player")->calcAABB(boxBoundingVertPosArray);
-
-	//calculate new bounding box of first box
-	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
-
-	//Physics::XYZPhysics(pos, entPhys, boxSpeed);
-	Physics::XYZPhysics(pos, entPhys, 5.0f * dt, boxSpeedX, boxSpeedZ);
-	FindEnt("player")->SetPosition(pos);
-
-	collision("player", pos, dt);
-	//FindEnt("player")->SetPosition(pos);
-
-	//formerly mboxritemmovable
-    firstbox->NumFramesDirty++;
-
-	// boxSpeed 
-	//boxSpeed = 5.0f * dt;
-
-    /*ent.SetPosition(pos);
-
-	if (!isTopDown) {
-		mCamera.SetPosition(ent.getHPos());
-	}*/
 
     if (!isTopDown) {
         mCamera.SetPosition(FindEnt("player")->getHPos());
     }
     mCamera.UpdateViewMatrix();
 }
+
+
+void App::UpdatePlayer2(const GameTimer& gt) {
+	FindEnt("block")->World = secondbox->World;
+	FindEnt("block")->calcAABB(boxBoundingVertPosArray);
+	calcAABB(boxBoundingVertPosArray, secondbox->World, secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex);
+	secondbox->NumFramesDirty++;
+}
  
 void App::MoveCars(const GameTimer& gt) {
 	const float dt = gt.DeltaTime();
-	XMFLOAT3 mov = { 0.0f, 0.0f, 3.0f * dt };
 	for (auto& e : mAllRitems) {
+		XMFLOAT3 mov = { 0.0f, 0.0f, 3.0f * dt };
 		if (e->ObjCBIndex >= carsCBIndexStart && e->ObjCBIndex < carsCBIndexStart+carCount) {
 			string entname = "block" + std::to_string(e->ObjCBIndex);
 			XMMATRIX world = XMLoadFloat4x4(&e->World);
-			//XMMATRIX boxScale = XMMatrixScaling(0.5f, 0.5f, 0.5f);
+			if (e->ObjCBIndex < carsCBIndexStart + carCount / 3 || e->ObjCBIndex >= carsCBIndexStart + (2 * carCount / 3)) {
+				mov = { 0.0f, 0.0f, -3.0f * dt };
+			}
 			XMMATRIX boxOffset = XMMatrixTranslation(mov.x, mov.y, mov.z);
 			XMMATRIX boxWorld = world * boxOffset;
 			if (e->World(3, 2) > (20 * 8.0f)) {
-				XMMATRIX transl = XMMatrixTranslation(5.0f, -0.8f, 0.0f);
-				if(e->ObjCBIndex >= carsCBIndexStart + carCount/3)transl = XMMatrixTranslation(0.0f, -0.8f, 0.0f);
-				if(e->ObjCBIndex >= carsCBIndexStart + (2*carCount / 3))transl = XMMatrixTranslation(-5.0f, -0.8f, 0.0f);
+				XMMATRIX transl = XMMatrixTranslation(0.0f, -0.8f, 0.0f);
 				XMMATRIX resetPos = XMMatrixScaling(0.5f, 0.5f, 0.5f) * transl * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f);
 				XMStoreFloat4x4(&e->World, resetPos);
 				XMStoreFloat4x4(&FindEnt(entname)->World, resetPos);
 			}
-			else {
+			else if(e->World(3, 2) < 0) {
+				XMMATRIX transl = XMMatrixTranslation(5.0f, -0.8f, 0.0f);
+				if (e->ObjCBIndex < carsCBIndexStart + carCount / 3)transl = XMMatrixTranslation(5.0f, -0.8f, 20 * 8.0f);
+				if (e->ObjCBIndex >= carsCBIndexStart + (2 * carCount / 3))transl = XMMatrixTranslation(-5.0f, -0.8f, 20 * 8.0f);
+				XMMATRIX resetPos = XMMatrixScaling(0.5f, 0.5f, 0.5f) * transl;// *XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f);
+				XMStoreFloat4x4(&e->World, resetPos);
+				XMStoreFloat4x4(&FindEnt(entname)->World, resetPos);
+			} else {
 				XMStoreFloat4x4(&e->World, boxWorld);
 				XMStoreFloat4x4(&FindEnt(entname)->World, boxWorld);
 			}
@@ -944,7 +1013,16 @@ void App::UpdateMainPassCB(const GameTimer& gt)
 	mMainPassCB.Lights[1].Strength = { 0.3f, 0.3f, 0.3f };
 	mMainPassCB.Lights[2].Direction = { 0.0f, -0.707f, -0.707f };
 	mMainPassCB.Lights[2].Strength = { 0.15f, 0.15f, 0.15f };
-	//mMainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
+	if (!gameClient->gameStarted && winner == nullptr) {
+		mMainPassCB.Lights[0].Strength = { 1.0f, 0.0f, 0.0f };
+		mMainPassCB.Lights[1].Strength = { 1.0f, 0.0f, 0.0f };
+		mMainPassCB.Lights[2].Strength = { 1.0f, 0.0f, 0.0f };
+	}
+	if (winner != nullptr) {
+		mMainPassCB.Lights[0].Strength = { 0.0f, 1.0f, 0.0f };
+		mMainPassCB.Lights[1].Strength = { 0.0f, 1.0f, 0.0f };
+		mMainPassCB.Lights[2].Strength = { 0.0f, 1.0f, 0.0f };
+	}
 	for (int i = 3; i < 6; ++i) {
 		//mMainPassCB.Lights[i].Direction = { 0.0f, -5.0f, -10.0f };
 		mMainPassCB.Lights[i].Strength = { 1.0f, 0.0f, 0.0f };
@@ -991,18 +1069,18 @@ void App::LoadTextures()
 }
 
 void App::SetupClientServer() {
-	/*while (true) {
-		if (GetAsyncKeyState('1') & 0x8000) {*/
+	while (true) {
+		if (GetAsyncKeyState('1') & 0x8000) {
 			gameServer = new Server();
 			gameClient = new Client();
-		/*	isHost = true;
+			isHost = true;
 			break;
 		}
 		if (GetAsyncKeyState('2') & 0x8000) {
 			gameClient = new Client();
 			break;
 		}
-	}*/
+	}
 }
 
 void App::BuildDescriptorHeaps()
@@ -1135,7 +1213,7 @@ void App::BuildShapeGeometry()
 {
     GeometryGenerator geoGen;
 	box = geoGen.CreateBox(0.5f, 0.5f, 0.5f, 3);
-	GeometryGenerator::MeshData box2 = geoGen.CreateBox(1.5f, 0.5f, 1.5f, 3);
+	GeometryGenerator::MeshData box2 = geoGen.CreateBox(0.5f, 0.5f, 0.5f, 3);
 	GeometryGenerator::MeshData grid = geoGen.CreateGrid(15.0f, 5.0f, 30, 20);
 	road = grid;
 	GeometryGenerator::MeshData tunnel = geoGen.CreateTunnel(15.0f, 2.2f, 10.0f, 3);
@@ -1406,6 +1484,8 @@ void App::BuildTruckGeometry()
 	{
 		fin >> vertices[i].Pos.x >> vertices[i].Pos.y >> vertices[i].Pos.z;
 		//fin >> vertices[i].TexC.x >> vertices[i].TexC.y;
+		/*vertices[i].TexC.x = vertices[i].Pos.x;
+		vertices[i].TexC.y = vertices[i].Pos.y;*/
 		fin >> vertices[i].Normal.x >> vertices[i].Normal.y >> vertices[i].Normal.z;
 	}
 
@@ -1676,21 +1756,22 @@ void App::BuildRenderItems()
 	mRitemLayer[(int)RenderLayer::Sky].push_back(skyRitem.get());
 	mAllRitems.push_back(std::move(skyRitem));
 
-	//if (gameServer != nullptr) {
+	if (isHost) {
 		//can probably remove the translations because we're using pos global
 		box1Translation = XMMatrixTranslation(-2.5f, 2.0f, 0.0f);
 		box2Translation = XMMatrixTranslation(2.5f, 0.5f, 0.0f);
 		pos = { -2.5f, 0.5f, 0.0f };
-	//}
-	//else {
-	//	//can probably remove the translations because we're using pos global
-	//	box1Translation = XMMatrixTranslation(2.5f, 0.5f, 0.0f);
-	//	box2Translation = XMMatrixTranslation(-2.5f, 0.5f, 0.0f);
-	//	pos = { 2.5f, 0.5f, 0.0f };
-	//}
+	}
+	else {
+		//can probably remove the translations because we're using pos global
+		box1Translation = XMMatrixTranslation(2.5f, 0.5f, 0.0f);
+		box2Translation = XMMatrixTranslation(-2.5f, 0.5f, 0.0f);
+		pos = { 2.5f, 0.5f, 0.0f };
+	}
 	auto boxRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(1.0f, 1.0f, 1.0f) * box1Translation);
-	XMStoreFloat4x4(&boxRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f)); 
+	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box1Translation);
+	XMStoreFloat4x4(&FindEnt("player")->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box1Translation);
+	XMStoreFloat4x4(&boxRitem->TexTransform, XMMatrixScaling(2.0f, 2.0f, 2.0f));
 	boxRitem->ObjCBIndex = objCBIndex++;
 	boxRitem->Mat = mMaterials["bricks0"].get();
 	boxRitem->Geo = mGeometries["shapeGeo"].get();
@@ -1699,8 +1780,6 @@ void App::BuildRenderItems()
 	boxRitem->StartIndexLocation = boxRitem->Geo->DrawArgs["box"].StartIndexLocation;
 	boxRitem->BaseVertexLocation = boxRitem->Geo->DrawArgs["box"].BaseVertexLocation;
     firstbox = boxRitem.get();
-	mRitemLayer[(int)RenderLayer::Opaque].push_back(boxRitem.get());
-	mAllRitems.push_back(std::move(boxRitem));
 
 	FindEnt("player")->calcAABB(boxBoundingVertPosArray);
 	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
@@ -1708,7 +1787,7 @@ void App::BuildRenderItems()
     auto boxRitem2 = std::make_unique<RenderItem>();
     XMStoreFloat4x4(&boxRitem2->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box2Translation);
 	XMStoreFloat4x4(&FindEnt("block")->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box2Translation);
-	XMStoreFloat4x4(&boxRitem2->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
+	XMStoreFloat4x4(&boxRitem2->TexTransform, XMMatrixScaling(2.0f, 2.0f, 2.0f));
 	boxRitem2->ObjCBIndex = objCBIndex++;
 	boxRitem2->Mat = mMaterials["bricks0"].get();
     boxRitem2->Geo = mGeometries["shapeGeo"].get();
@@ -1717,13 +1796,17 @@ void App::BuildRenderItems()
     boxRitem2->StartIndexLocation = boxRitem2->Geo->DrawArgs["box2"].StartIndexLocation;
     boxRitem2->BaseVertexLocation = boxRitem2->Geo->DrawArgs["box2"].BaseVertexLocation;
 	secondbox = boxRitem2.get();
-	//gameClient->setPlayer(boxRitem2.get());
-	mRitemLayer[(int)RenderLayer::Opaque].push_back(boxRitem2.get());
-    mAllRitems.push_back(std::move(boxRitem2));
-
 	//OutputDebugString(L"CalcAABB of block entity\n");
 	FindEnt("block")->calcAABB(boxBoundingVertPosArray);
 	calcAABB(boxBoundingVertPosArray, secondbox->World, secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex);
+
+	gameClient->setPlayer(boxRitem2.get());
+
+	mRitemLayer[(int)RenderLayer::Opaque].push_back(boxRitem.get());
+	mAllRitems.push_back(std::move(boxRitem));
+	mRitemLayer[(int)RenderLayer::Opaque].push_back(boxRitem2.get());
+    mAllRitems.push_back(std::move(boxRitem2));
+
 
 
 	BuildEnt("startplatform");
@@ -1781,7 +1864,7 @@ void App::BuildRenderItems()
 	carsCBIndexStart = objCBIndex;
 	for (int i = 0; i < carCount/3; ++i) {
 		auto platformRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(-5.0f, -0.8f, (i * -12.0f)) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
+		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(-5.0f, -0.8f, (i * 12.0f)));
 		XMStoreFloat4x4(&platformRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 		platformRitem->ObjCBIndex = objCBIndex++;
 		string entname = "block" + std::to_string(platformRitem->ObjCBIndex);
@@ -1798,7 +1881,7 @@ void App::BuildRenderItems()
 		////OutputDebugStringA(entname.c_str());
 		////OutputDebugString(L"\n");
 		BuildEnt(entname);
-		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(-5.0f, -0.8f, (i * -12.0f)) /** XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f)*/);
+		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(-5.0f, -0.8f, (i * 12.0f)) /** XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f)*/);
 		FindEnt(entname)->calcAABB(carBoundingVertPosArray);
 
 	}
@@ -1828,7 +1911,7 @@ void App::BuildRenderItems()
 
 	for (int i = 0; i < carCount / 3; ++i) {
 		auto platformRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, -0.8f, (i * -12.0f)) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
+		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, -0.8f, (i * 12.0f)));
 		XMStoreFloat4x4(&platformRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 		platformRitem->ObjCBIndex = objCBIndex++;
 		string entname = "block" + std::to_string(platformRitem->ObjCBIndex);
@@ -1844,7 +1927,7 @@ void App::BuildRenderItems()
 		////OutputDebugStringA(entname.c_str());
 		////OutputDebugString(L"\n");
 		BuildEnt(entname);
-		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, -0.8f, (i * -12.0f)) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
+		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, -0.8f, (i * 12.0f)));
 		FindEnt(entname)->calcAABB(carBoundingVertPosArray);
 	}
 	
