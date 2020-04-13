@@ -14,6 +14,7 @@
 #include "../../Common/camera.h"
 #include "../../Common/Entity.h"
 #include "../../Physics/Physics.h"
+#include "SkullAI.h"
 #include "Server.h"
 #include "Client.h"
 #include "FrameResource.h"
@@ -64,6 +65,7 @@ private:
 
 	void OnKeyboardInput(const GameTimer& gt);
 	void App::MoveCars(const GameTimer& gt);
+	void MoveSkulls(const GameTimer& gt);
 	void AnimateMaterials(const GameTimer& gt);
 	void UpdateObjectCBs(const GameTimer& gt);
 	void UpdateMaterialBuffer(const GameTimer& gt);
@@ -152,6 +154,11 @@ private:
 
 	UINT carsCBIndexStart = 0;
 	UINT carCount = 33;
+
+	// AI related
+	std::vector<SkullAI> skullControllers;
+	UINT skullCbIndexStart = 0;
+	UINT skullCbIndexMax = 0;
 
 	// Render items divided by PSO.
 	std::vector<RenderItem*> mRitemLayer[(int)RenderLayer::Count];
@@ -278,6 +285,9 @@ bool App::Initialize()
 	BuildEnt("player", pos, right, up, look);
 	BuildEnt("block");
 
+	//to help with decision making for skull AI
+	srand(time(NULL));
+
 	//SetupClientServer();
     BuildRootSignature();
 	BuildDescriptorHeaps();
@@ -336,6 +346,7 @@ void App::Update(const GameTimer& gt)
 
 	AnimateMaterials(gt);
 	MoveCars(gt);
+	MoveSkulls(gt);
 	UpdateObjectCBs(gt);
 	UpdateMaterialBuffer(gt);
 	UpdateMainPassCB(gt);
@@ -826,6 +837,38 @@ void App::OnKeyboardInput(const GameTimer& gt)
         mCamera.SetPosition(FindEnt("player")->getHPos());
     }
     mCamera.UpdateViewMatrix();
+}
+
+void App::MoveSkulls(const GameTimer& gt) {
+	const float dt = gt.DeltaTime();
+
+	for (auto& e : mAllRitems) {
+
+		UINT curIndex = e->ObjCBIndex - skullCbIndexStart;
+		if (e->ObjCBIndex >= skullCbIndexStart && e->ObjCBIndex < skullCbIndexMax) {
+			string entname = "skull" + std::to_string(curIndex);
+			XMMATRIX world = XMLoadFloat4x4(&e->World);
+
+			if (skullControllers[curIndex].isInRange(FindEnt("player"))) {
+				Entity* target = skullControllers[curIndex].CalcClosest(FindEnt("player"), nullptr);
+				//XMFLOAT3 skullPos = FindEnt(entname)->GetPosition3f();
+				XMFLOAT3 skullMov = skullControllers[curIndex].CalcTeleportLocation(target);
+
+				XMMATRIX skullOffset = XMMatrixTranslation(skullMov.x * dt, skullMov.y * dt * 0.8, skullMov.z * dt);
+				XMMATRIX skullWorld = world * skullOffset;
+				XMStoreFloat4x4(&e->World, skullWorld);
+				XMStoreFloat4x4(&FindEnt(entname)->World, skullWorld);
+			}
+			else {
+
+				XMStoreFloat4x4(&e->World, world);
+				XMStoreFloat4x4(&FindEnt(entname)->World, world);
+			}
+			
+			FindEnt(entname)->calcAABB(skullBoundingVertPosArray);
+			e->NumFramesDirty++;
+		}
+	}
 }
  
 void App::MoveCars(const GameTimer& gt) {
@@ -1864,6 +1907,7 @@ void App::BuildRenderItems()
 	mAllRitems.push_back(std::move(platformRitem));
 	FindEnt("car")->calcAABB(carBoundingVertPosArray);
 
+	skullCbIndexStart = objCBIndex;
 	for (int i = 0; i < 5; ++i) {
 		auto leftSkullRitem = std::make_unique<RenderItem>();
 		auto rightSkullRitem = std::make_unique<RenderItem>();
@@ -1902,16 +1946,21 @@ void App::BuildRenderItems()
 		//OutputDebugStringA(leftSkullEntname.c_str());
 		//OutputDebugString(L"\n");
 		BuildEnt(skullEntname);
+		SkullAI skullCtrl1(FindEnt(skullEntname));
+		skullControllers.push_back(skullCtrl1);
 		XMStoreFloat4x4(&FindEnt(skullEntname)->World, skullSize * leftSkullWorld);
+		FindEnt(skullEntname)->SetPosition({ -15.0f, -1.0f, 20.0f + i * 20.0f });
 		FindEnt(skullEntname)->calcAABB(skullBoundingVertPosArray);
 
 		skullEntname = "skull" + std::to_string(2 * i + 1);
 		BuildEnt(skullEntname);
+		SkullAI skullCtrl2(FindEnt(skullEntname));
+		skullControllers.push_back(skullCtrl2);
 		XMStoreFloat4x4(&FindEnt(skullEntname)->World, skullSize * rightSkullWorld);
+		FindEnt(skullEntname)->SetPosition({ 15.0f, -1.0f, 20.0f + i * 20.0f });
 		FindEnt(skullEntname)->calcAABB(skullBoundingVertPosArray);
 	}
-
-	
+	skullCbIndexMax = objCBIndex;
 }
 
 void App::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
