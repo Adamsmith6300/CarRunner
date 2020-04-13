@@ -1484,6 +1484,8 @@ void App::BuildTruckGeometry()
 	{
 		fin >> vertices[i].Pos.x >> vertices[i].Pos.y >> vertices[i].Pos.z;
 		//fin >> vertices[i].TexC.x >> vertices[i].TexC.y;
+		/*vertices[i].TexC.x = vertices[i].Pos.x;
+		vertices[i].TexC.y = vertices[i].Pos.y;*/
 		fin >> vertices[i].Normal.x >> vertices[i].Normal.y >> vertices[i].Normal.z;
 	}
 
