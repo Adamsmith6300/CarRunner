@@ -66,7 +66,7 @@ protected:
 	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView()const;
 	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView()const;
 
-	void CalculateFrameStats();
+	virtual void CalculateFrameStats();
 
     void LogAdapters();
     void LogAdapterOutputs(IDXGIAdapter* adapter);

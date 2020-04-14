@@ -21,7 +21,7 @@ public:
     Server& operator=(const Server& rhs) = delete;
     ~Server();
     void start();
-    //void sendToClients(char playerMove);
+    void sendStartGame();
     wstring charMsgToWString(string& str);
 
 private:
