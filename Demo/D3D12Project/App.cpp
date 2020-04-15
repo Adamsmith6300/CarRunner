@@ -175,6 +175,9 @@ private:
 	thread clientThread;
 	thread serverThread;
 	bool isHost = false;
+	bool sPMode = false;
+	float startTime = 0.0f;
+	float endTime = 0.0f;
 };
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
@@ -239,8 +242,13 @@ int App::Run()
 		{
 			mTimer.Tick();
 			
-			if (isHost && GetAsyncKeyState('3') & 0x8000 && !gameClient->gameStarted && winner == nullptr) {
+			if (isHost && GetAsyncKeyState('3') & 0x8000 && !gameClient->gameActive && gameClient->winner == 0) {
 				gameServer->sendStartGame();
+				startTime = mTimer.TotalTime();
+			}
+			if (sPMode && GetAsyncKeyState('3') & 0x8000 && !gameClient->gameActive && gameClient->winner == 0) {
+				gameClient->gameActive = true;
+				startTime = mTimer.TotalTime();
 			}
 
 			CalculateFrameStats();
@@ -277,15 +285,19 @@ void App::CalculateFrameStats()
 
 		wstring fpsStr = to_wstring(fps);
 		wstring mspfStr = to_wstring(mspf);
+		wstring timeTotal = to_wstring(endTime - startTime);
 
 		wstring playerMessage = L"Run!";
-		if (!gameClient->gameStarted) {
+		if (!gameClient->gameActive) {
 			if (isHost) {
 				playerMessage = L"Press 3 to start the game...";
 			}
 			else {
 				playerMessage = L"Waiting on host to start the game...";
 			}
+			if(sPMode)playerMessage = L"Press 3 to start the game...";
+			if(gameClient->winner > 0)playerMessage = L"Congratulations! You won!  Time: " + timeTotal;
+			if(gameClient->winner < 0)playerMessage = L"Uh oh! You lost!";
 		}
 
 
@@ -387,7 +399,7 @@ void App::Update(const GameTimer& gt)
 	UpdatePlayer2(gt);
 	AnimateMaterials(gt);
 	
-	if(gameClient->gameStarted)MoveCars(gt);
+	if(gameClient->gameActive)MoveCars(gt);
 	UpdateObjectCBs(gt);
 	UpdateMaterialBuffer(gt);
 	UpdateMainPassCB(gt);
@@ -741,7 +753,7 @@ Entity* App::FindEnt(string name) {
 	return ents.find(name)->second;
 }
  
-void App::collision(string ent, XMFLOAT3& pos, float dt) {
+void App::collision(string ent, XMFLOAT3& curPos, float dt) {
 	
 	std::map<string, Entity*>::iterator it = ents.begin();
 	while (it != ents.end()) {
@@ -751,11 +763,20 @@ void App::collision(string ent, XMFLOAT3& pos, float dt) {
 
 		if (Physics::collisionCheck(FindEnt(ent), FindEnt(it->first)) && ent != it->first) {
 			
-			Physics::handleCollision(FindEnt(ent), FindEnt(it->first), pos,dt);
+			Physics::handleCollision(FindEnt(ent), FindEnt(it->first), curPos,dt);
 
 			XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
 			XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
-			XMMATRIX boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
+			XMMATRIX boxOffset = XMMatrixTranslation(curPos.x, curPos.y, curPos.z);
+			if (it->first.compare("road") == 0) {
+				XMFLOAT3 newPos = FindEnt(ent)->GetStartPosition3f();
+				boxOffset = XMMatrixTranslation(newPos.x - pos.x, newPos.y - pos.y, newPos.z - pos.z);
+				FindEnt(ent)->returnToStart();
+				mCamera.SetPosition(FindEnt(ent)->getHPos());
+				mCamera.UpdateViewMatrix();
+				pos = newPos;
+			}
+
 			XMMATRIX boxWorld = boxRotate * boxScale * boxOffset;
 
 			XMStoreFloat4x4(&firstbox->World, boxWorld);
@@ -764,9 +785,16 @@ void App::collision(string ent, XMFLOAT3& pos, float dt) {
 			FindEnt(ent)->calcAABB(boxBoundingVertPosArray);
 			calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
 
-			if (it->first.compare("endplatform") == 0) {
-				gameClient->gameStarted = false;
-				winner = it->second;
+			if (it->first.compare("endplatform") == 0 && gameClient->winner == 0) {
+				if (!sPMode) {
+					gameClient->sendToServerWin();
+					endTime = mTimer.TotalTime();
+				}
+				else {
+					gameClient->winner = 1;
+					gameClient->gameActive = false;
+					endTime = mTimer.TotalTime();
+				}
 			}
 
 		}
@@ -779,7 +807,7 @@ void App::collision(string ent, XMFLOAT3& pos, float dt) {
 
 void App::OnKeyboardInput(const GameTimer& gt)
 {
-	if (gameClient->gameStarted) {
+	if (gameClient->gameActive) {
 		const float dt = gt.DeltaTime();
 		PhysicsEntity* entPhys = FindEnt("player")->GetPhysHolder();
 
@@ -788,13 +816,13 @@ void App::OnKeyboardInput(const GameTimer& gt)
 			boxSpeedZ = maxSpeed;
 		bool moveZ = false, moveX = false;
 
-		if (GetAsyncKeyState('Q') & 0x8000) {
-			entPhys->setAngleNegative();
-		}
-		if (GetAsyncKeyState('E') & 0x8000) {
-			entPhys->setAnglePositive();
-			//keyboardInput.y -= boxSpeed;
-		}
+		//if (GetAsyncKeyState('Q') & 0x8000) {
+		//	entPhys->setAngleNegative();
+		//}
+		//if (GetAsyncKeyState('E') & 0x8000) {
+		//	entPhys->setAnglePositive();
+		//	//keyboardInput.y -= boxSpeed;
+		//}
 
 		if (GetAsyncKeyState('W') & 0x8000) {
 			entPhys->setZIntentPositive();
@@ -867,8 +895,9 @@ void App::OnKeyboardInput(const GameTimer& gt)
 		collision("player", pos, dt);
 		//FindEnt("player")->SetPosition(pos);
 
-		
-		gameClient->sendToServer(pos.x, pos.y, pos.z);
+		if (!sPMode) {
+			gameClient->sendToServer(pos.x, pos.y, pos.z);
+		}
 		
 
 		//formerly mboxritemmovable
@@ -1013,12 +1042,12 @@ void App::UpdateMainPassCB(const GameTimer& gt)
 	mMainPassCB.Lights[1].Strength = { 0.3f, 0.3f, 0.3f };
 	mMainPassCB.Lights[2].Direction = { 0.0f, -0.707f, -0.707f };
 	mMainPassCB.Lights[2].Strength = { 0.15f, 0.15f, 0.15f };
-	if (!gameClient->gameStarted && winner == nullptr) {
+	if (!gameClient->gameActive || gameClient->winner < 0) {
 		mMainPassCB.Lights[0].Strength = { 1.0f, 0.0f, 0.0f };
 		mMainPassCB.Lights[1].Strength = { 1.0f, 0.0f, 0.0f };
 		mMainPassCB.Lights[2].Strength = { 1.0f, 0.0f, 0.0f };
 	}
-	if (winner != nullptr) {
+	if (gameClient->winner > 0) {
 		mMainPassCB.Lights[0].Strength = { 0.0f, 1.0f, 0.0f };
 		mMainPassCB.Lights[1].Strength = { 0.0f, 1.0f, 0.0f };
 		mMainPassCB.Lights[2].Strength = { 0.0f, 1.0f, 0.0f };
@@ -1078,6 +1107,11 @@ void App::SetupClientServer() {
 		}
 		if (GetAsyncKeyState('2') & 0x8000) {
 			gameClient = new Client();
+			break;
+		}
+		if (GetAsyncKeyState('3') & 0x8000) {
+			gameClient = new Client();
+			sPMode = true;
 			break;
 		}
 	}
@@ -1759,14 +1793,14 @@ void App::BuildRenderItems()
 	if (isHost) {
 		//can probably remove the translations because we're using pos global
 		box1Translation = XMMatrixTranslation(-2.5f, 2.0f, 0.0f);
-		box2Translation = XMMatrixTranslation(2.5f, 0.5f, 0.0f);
-		pos = { -2.5f, 0.5f, 0.0f };
+		box2Translation = XMMatrixTranslation(2.5f, 2.0f, 0.0f);
+		pos = { -2.5f, 2.0f, 0.0f };
 	}
 	else {
 		//can probably remove the translations because we're using pos global
-		box1Translation = XMMatrixTranslation(2.5f, 0.5f, 0.0f);
-		box2Translation = XMMatrixTranslation(-2.5f, 0.5f, 0.0f);
-		pos = { 2.5f, 0.5f, 0.0f };
+		box1Translation = XMMatrixTranslation(2.5f, 2.0f, 0.0f);
+		box2Translation = XMMatrixTranslation(-2.5f, 2.0f, 0.0f);
+		pos = { 2.5f, 2.0f, 0.0f };
 	}
 	auto boxRitem = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box1Translation);
@@ -1782,6 +1816,10 @@ void App::BuildRenderItems()
     firstbox = boxRitem.get();
 
 	FindEnt("player")->calcAABB(boxBoundingVertPosArray);
+	FindEnt("player")->SetPosition(pos);
+	mCamera.SetPosition(FindEnt("player")->getHPos());
+	mCamera.UpdateViewMatrix();
+	FindEnt("player")->SetPositionStart();
 	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
 	
     auto boxRitem2 = std::make_unique<RenderItem>();
