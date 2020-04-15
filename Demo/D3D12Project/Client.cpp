@@ -39,6 +39,8 @@ Client::Client() {
 		WSACleanup();
 		return;
 	}
+	consoleOutput = L"Connected to server!\n";
+	::OutputDebugString(consoleOutput.c_str());
 	running = true;
 }
 
@@ -61,44 +63,55 @@ void Client::start() {
 			string msg = string(buf, 0, bytesReceived);
 			/*consoleOutput = L"SERVER> " + charMsgToWString(msg) + L"\n";
 			OutputDebugString(consoleOutput.c_str());*/
-
-			std::vector<string> bufferPos;
-			string word = "";
-			for (auto x : msg)
-			{
-				if (x == ' ')
-				{
-					bufferPos.push_back(word);
-					word = "";
-				}
-				else
-				{
-					word = word + x;
-				}
+			if ((msg.compare("$$$$$")) == 0) {
+				gameActive = false;
+				winner = -1;
 			}
+			
+			if (gameActive) {
+				std::vector<string> bufferPos;
+				string word = "";
+				for (auto x : msg)
+				{
+					if (x == ' ')
+					{
+						bufferPos.push_back(word);
+						word = "";
+					}
+					else
+					{
+						word = word + x;
+					}
+				}
 
-			float x = ::atof(bufferPos[0].c_str());
-			float y = ::atof(bufferPos[1].c_str());
-			float z = ::atof(bufferPos[2].c_str());
+				float x = ::atof(bufferPos[0].c_str());
+				float y = ::atof(bufferPos[1].c_str());
+				float z = ::atof(bufferPos[2].c_str());
 
-			/*consoleOutput = L"Pos.X" + to_wstring(x) + L"\n";
-			OutputDebugString(consoleOutput.c_str());
-			consoleOutput = L"Pos.Y" + to_wstring(y) + L"\n";
-			OutputDebugString(consoleOutput.c_str());
-			consoleOutput = L"Pos.Z" + to_wstring(z) + L"\n";
-			OutputDebugString(consoleOutput.c_str());*/
+				/*consoleOutput = L"Pos.X" + to_wstring(x) + L"\n";
+				OutputDebugString(consoleOutput.c_str());
+				consoleOutput = L"Pos.Y" + to_wstring(y) + L"\n";
+				OutputDebugString(consoleOutput.c_str());
+				consoleOutput = L"Pos.Z" + to_wstring(z) + L"\n";
+				OutputDebugString(consoleOutput.c_str());*/
 
 
-			XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
-			XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
-			XMMATRIX boxOffset = XMMatrixTranslation(x, y, z);
-			XMMATRIX boxWorld = boxRotate * boxScale * boxOffset;
-			otherPlayer->Geo;
-			XMStoreFloat4x4(&otherPlayer->World, boxWorld);
-			////calculate new bounding box of first box
-			//calcAABB(boxBoundingVertPosArray, otherPlayer->World, otherPlayer->boundingboxminvertex, otherPlayer->boundingboxmaxvertex);
-			////formerly mboxritemmovable
-			otherPlayer->NumFramesDirty++;
+				XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
+				XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
+				XMMATRIX boxOffset = XMMatrixTranslation(x, y, z);
+				XMMATRIX boxWorld = boxRotate * boxScale * boxOffset;
+				otherPlayer->Geo;
+				XMStoreFloat4x4(&otherPlayer->World, boxWorld);
+				////calculate new bounding box of first box
+				//calcAABB(boxBoundingVertPosArray, otherPlayer->World, otherPlayer->boundingboxminvertex, otherPlayer->boundingboxmaxvertex);
+				////formerly mboxritemmovable
+				//otherPlayer->NumFramesDirty++;
+			}
+			if ((msg.compare("#####")) == 0) {
+				gameActive = true;
+				//OutputDebugString(L"EQUAL");
+			}
+			
 		}
 	}
 }
@@ -166,4 +179,12 @@ void Client::sendToServer(float x, float y, float z) {
 
 	int sendResult = send(sock, msg, sizeof buffer, 0);
 
+}
+
+void Client::sendToServerWin() {
+	char buf[] = "$$$$$";
+	const char* msg = buf;
+	send(sock, msg, sizeof buf, 0);
+	gameActive = false;
+	winner = 1;
 }

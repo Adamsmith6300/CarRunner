@@ -46,25 +46,27 @@ enum class RenderLayer : int
 class App : public D3DApp
 {
 public:
-    App(HINSTANCE hInstance);
-    App(const App& rhs) = delete;
-    App& operator=(const App& rhs) = delete;
-    ~App();
+	App(HINSTANCE hInstance);
+	App(const App& rhs) = delete;
+	App& operator=(const App& rhs) = delete;
+	~App();
 
-    virtual bool Initialize()override;
+	virtual bool Initialize()override;
 	virtual int Run()override;
+	virtual void CalculateFrameStats();
 
 private:
-    virtual void OnResize()override;
-    virtual void Update(const GameTimer& gt)override;
-    virtual void Draw(const GameTimer& gt)override;
+	virtual void OnResize()override;
+	virtual void Update(const GameTimer& gt)override;
+	virtual void Draw(const GameTimer& gt)override;
 
-    virtual void OnMouseDown(WPARAM btnState, int x, int y)override;
-    virtual void OnMouseUp(WPARAM btnState, int x, int y)override;
-    virtual void OnMouseMove(WPARAM btnState, int x, int y)override;
+	virtual void OnMouseDown(WPARAM btnState, int x, int y)override;
+	virtual void OnMouseUp(WPARAM btnState, int x, int y)override;
+	virtual void OnMouseMove(WPARAM btnState, int x, int y)override;
 
 	void OnKeyboardInput(const GameTimer& gt);
-	void App::MoveCars(const GameTimer& gt);
+	void UpdatePlayer2(const GameTimer& gt);
+	void MoveCars(const GameTimer& gt);
 	void MoveSkulls(const GameTimer& gt);
 	void AnimateMaterials(const GameTimer& gt);
 	void UpdateObjectCBs(const GameTimer& gt);
@@ -73,7 +75,7 @@ private:
 
 	bool collisionCheck(XMVECTOR& firstboxmin, XMVECTOR& firstboxmax, XMMATRIX& firstboxworld, XMVECTOR& secondboxmin, XMVECTOR& secondboxmax, XMMATRIX& secondboxworld);
 	void calcAABB(std::vector<XMFLOAT3> boxVerts, XMFLOAT4X4& worldspace, XMVECTOR& boxmin, XMVECTOR& boxmax);
-	void CreateBoundingVolumes(std::vector<GeometryGenerator::Vertex>& vertPosArray,std::vector<XMFLOAT3>& boundingBoxVerts, std::vector<DWORD>& boundingBoxIndex);
+	void CreateBoundingVolumes(std::vector<GeometryGenerator::Vertex>& vertPosArray, std::vector<XMFLOAT3>& boundingBoxVerts, std::vector<DWORD>& boundingBoxIndex);
 	void CreateBoundingVolumes(std::vector<Vertex>& vertPosArray, std::vector<XMFLOAT3>& boundingBoxVerts, std::vector<int32_t>& boundingBoxIndex);
 	//void handleCollision(XMVECTOR& firstboxmin, XMVECTOR& firstboxmax,XMFLOAT3& firsttranslation,XMVECTOR& secondboxmin, XMVECTOR& secondboxmax, float speed,XMFLOAT3 velocity, float deltatime);
 	XMFLOAT3 makeCeil(XMFLOAT3 first, XMFLOAT3 second);
@@ -83,49 +85,49 @@ private:
 	void BuildEnt(string name);
 	Entity* FindEnt(string name);
 
-	void collision(string ent,XMFLOAT3& pos, float dt);
+	void collision(string ent, XMFLOAT3& pos, float dt);
 
 	void LoadTextures();
-    void BuildDescriptorHeaps();
-    void BuildRootSignature();
-    void BuildShadersAndInputLayout();
-    void BuildShapeGeometry();
+	void BuildDescriptorHeaps();
+	void BuildRootSignature();
+	void BuildShadersAndInputLayout();
+	void BuildShapeGeometry();
 	void BuildplatformGeometry();
 	void BuildTruckGeometry();
 	void BuildSkullGeometry();
-    void BuildPSOs();
-    void BuildFrameResources();
+	void BuildPSOs();
+	void BuildFrameResources();
 	void BuildMaterials();
-    void BuildRenderItems();
-    void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
+	void BuildRenderItems();
+	void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
 	void SetupClientServer();
 	std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> GetStaticSamplers();
 
 private:
 
-    std::vector<std::unique_ptr<FrameResource>> mFrameResources;
-    FrameResource* mCurrFrameResource = nullptr;
-    int mCurrFrameResourceIndex = 0;
+	std::vector<std::unique_ptr<FrameResource>> mFrameResources;
+	FrameResource* mCurrFrameResource = nullptr;
+	int mCurrFrameResourceIndex = 0;
 
 	UINT mCbvSrvDescriptorSize = 0;
-    ComPtr<ID3D12RootSignature> mRootSignature = nullptr;
-    ComPtr<ID3D12DescriptorHeap> mCbvHeap = nullptr;
+	ComPtr<ID3D12RootSignature> mRootSignature = nullptr;
+	ComPtr<ID3D12DescriptorHeap> mCbvHeap = nullptr;
 	ComPtr<ID3D12DescriptorHeap> mSrvDescriptorHeap = nullptr;
 
 	std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> mGeometries;
 	std::unordered_map<std::string, std::unique_ptr<Material>> mMaterials;
 	std::unordered_map<std::string, std::unique_ptr<Texture>> mTextures;
 	std::unordered_map<std::string, ComPtr<ID3DBlob>> mShaders;
-    std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOs;
+	std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOs;
 
-    std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
+	std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
 
 	std::vector<std::unique_ptr<RenderItem>> mAllRitems;
-    RenderItem* mBoxItemMovable;
-    XMFLOAT3 pos = { 0.0f, 0.0f, 0.0f };
-    XMFLOAT3 right = {pos.x+1, pos.y, pos.z};
-    XMFLOAT3 up = { pos.x, pos.y+1, pos.z };
-    XMFLOAT3 look = { pos.x, pos.y, pos.z+1 };
+	RenderItem* mBoxItemMovable;
+	XMFLOAT3 pos = { -2.5f, 0.5f, 0.0f };
+	XMFLOAT3 right = { pos.x + 1, pos.y, pos.z };
+	XMFLOAT3 up = { pos.x, pos.y + 1, pos.z };
+	XMFLOAT3 look = { pos.x, pos.y, pos.z + 1 };
 
 	ENTMAP ents = {};
 
@@ -153,7 +155,7 @@ private:
 	GeometryGenerator::MeshData skull;
 
 	UINT carsCBIndexStart = 0;
-	UINT carCount = 33;
+	UINT carCount = 39;
 
 	// AI related
 	std::vector<SkullAI> skullControllers;
@@ -163,15 +165,16 @@ private:
 	// Render items divided by PSO.
 	std::vector<RenderItem*> mRitemLayer[(int)RenderLayer::Count];
 	UINT mSkyTexHeapIndex = 0;
-    PassConstants mMainPassCB;
+	PassConstants mMainPassCB;
 
-    UINT mPassCbvOffset = 0;
+	UINT mPassCbvOffset = 0;
 
-    bool mIsWireframe = false;
+	bool mIsWireframe = false;
 
 	Camera mCamera;
 
-    POINT mLastMousePos;
+	POINT mLastMousePos;
+	Entity* winner = nullptr;
 
 	//networking
 	Server* gameServer = nullptr;
@@ -179,33 +182,36 @@ private:
 	thread clientThread;
 	thread serverThread;
 	bool isHost = false;
+	bool sPMode = false;
+	float startTime = 0.0f;
+	float endTime = 0.0f;
 };
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
-    PSTR cmdLine, int showCmd)
+	PSTR cmdLine, int showCmd)
 {
-    // Enable run-time memory check for debug builds.
+	// Enable run-time memory check for debug builds.
 #if defined(DEBUG) | defined(_DEBUG)
-    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 
-    try
-    {
-        App theApp(hInstance);
-        if(!theApp.Initialize())
-            return 0;
+	try
+	{
+		App theApp(hInstance);
+		if (!theApp.Initialize())
+			return 0;
 
-        return theApp.Run();
-    }
-    catch(DxException& e)
-    {
-        MessageBox(nullptr, e.ToString().c_str(), L"HR Failed", MB_OK);
-        return 0;
-    }
+		return theApp.Run();
+	}
+	catch (DxException & e)
+	{
+		MessageBox(nullptr, e.ToString().c_str(), L"HR Failed", MB_OK);
+		return 0;
+	}
 }
 
 App::App(HINSTANCE hInstance)
-    : D3DApp(hInstance)
+	: D3DApp(hInstance)
 {
 }
 
@@ -216,8 +222,8 @@ App::~App()
 		delete it->second;
 		++it;
 	}*/
-    if(md3dDevice != nullptr)
-        FlushCommandQueue();
+	if (md3dDevice != nullptr)
+		FlushCommandQueue();
 }
 int App::Run()
 {
@@ -225,10 +231,10 @@ int App::Run()
 
 	mTimer.Reset();
 
-	/*clientThread = thread(&Client::start, gameClient);
 	if (isHost) {
 		serverThread = thread(&Server::start, gameServer);
-	}*/
+	}
+	clientThread = thread(&Client::start, gameClient);
 
 	while (msg.message != WM_QUIT)
 	{
@@ -243,36 +249,87 @@ int App::Run()
 		{
 			mTimer.Tick();
 
-			/*if (!mAppPaused)
-			{*/
-				CalculateFrameStats();
-				Update(mTimer);
-				Draw(mTimer);
-			//}
-			/*else
-			{
-				Sleep(100);
-			}*/
+			if (isHost && GetAsyncKeyState('3') & 0x8000 && !gameClient->gameActive && gameClient->winner == 0) {
+				gameServer->sendStartGame();
+				startTime = mTimer.TotalTime();
+			}
+			if (sPMode && GetAsyncKeyState('3') & 0x8000 && !gameClient->gameActive && gameClient->winner == 0) {
+				gameClient->gameActive = true;
+				startTime = mTimer.TotalTime();
+			}
+
+			CalculateFrameStats();
+			Update(mTimer);
+			Draw(mTimer);
 		}
 	}
-	/*delete gameClient;
+	delete gameClient;
 	delete gameServer;
 	if (isHost) {
 		serverThread.join();
 	}
-	clientThread.join();*/
-	
+	clientThread.join();
+
 	return (int)msg.wParam;
 }
+
+void App::CalculateFrameStats()
+{
+	// Code computes the average frames per second, and also the 
+	// average time it takes to render one frame.  These stats 
+	// are appended to the window caption bar.
+
+	static int frameCnt = 0;
+	static float timeElapsed = 0.0f;
+
+	frameCnt++;
+
+	// Compute averages over one second period.
+	if ((mTimer.TotalTime() - timeElapsed) >= 1.0f)
+	{
+		float fps = (float)frameCnt; // fps = frameCnt / 1
+		float mspf = 1000.0f / fps;
+
+		wstring fpsStr = to_wstring(fps);
+		wstring mspfStr = to_wstring(mspf);
+		wstring timeTotal = to_wstring(endTime - startTime);
+
+		wstring playerMessage = L"Run!";
+		if (!gameClient->gameActive) {
+			if (isHost) {
+				playerMessage = L"Press 3 to start the game...";
+			}
+			else {
+				playerMessage = L"Waiting on host to start the game...";
+			}
+			if (sPMode)playerMessage = L"Press 3 to start the game...";
+			if (gameClient->winner > 0)playerMessage = L"Congratulations! You won!  Time: " + timeTotal;
+			if (gameClient->winner < 0)playerMessage = L"Uh oh! You lost!";
+		}
+
+
+		wstring windowText = mMainWndCaption +
+			L"    fps: " + fpsStr +
+			L"   mspf: " + mspfStr + L"            " + playerMessage;
+
+		SetWindowText(mhMainWnd, windowText.c_str());
+
+		// Reset for next average.
+		frameCnt = 0;
+		timeElapsed += 1.0f;
+	}
+}
+
+
 bool App::Initialize()
 {
-    
-    if(!D3DApp::Initialize())
-        return false;
 
-    // Reset the command list to prep for initialization commands.
-    ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
-	
+	if (!D3DApp::Initialize())
+		return false;
+
+	// Reset the command list to prep for initialization commands.
+	ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
+
 	mCbvSrvDescriptorSize = md3dDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	if (isTopDown) {
@@ -288,65 +345,72 @@ bool App::Initialize()
 	//to help with decision making for skull AI
 	srand(time(NULL));
 
-	//SetupClientServer();
-    BuildRootSignature();
+	SetupClientServer();
+	BuildRootSignature();
 	BuildDescriptorHeaps();
-    BuildShadersAndInputLayout();
-    BuildShapeGeometry();
+	BuildShadersAndInputLayout();
+	BuildShapeGeometry();
 	BuildTruckGeometry();
 	BuildplatformGeometry();
 	BuildSkullGeometry();
 	BuildMaterials();
 	//for creating the necessary vertices for bounding boxes
 	CreateBoundingVolumes(box.Vertices, boxBoundingVertPosArray, boxBoundingVertIndexArray);
-	CreateBoundingVolumes(platform.Vertices,platformBoundingVertPosArray,platformBoundingVertIndexArray);
+	CreateBoundingVolumes(platform.Vertices, platformBoundingVertPosArray, platformBoundingVertIndexArray);
 	CreateBoundingVolumes(road.Vertices, roadBoundingVertPosArray, roadBoundingVertIndexArray);
 	CreateBoundingVolumes(skull.Vertices, skullBoundingVertPosArray, skullBoundingVertIndexArray);
 	//CreateBoundingVolumes();
 	BuildRenderItems();
-    BuildFrameResources();
-    BuildPSOs();
+	BuildFrameResources();
+	BuildPSOs();
 
-    // Execute the initialization commands.
-    ThrowIfFailed(mCommandList->Close());
-    ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
-    mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
+	// Execute the initialization commands.
+	ThrowIfFailed(mCommandList->Close());
+	ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
+	mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
 
-    // Wait until initialization is complete.
-    FlushCommandQueue();
+	// Wait until initialization is complete.
+	FlushCommandQueue();
 
-    return true;
+	return true;
 }
 
 void App::OnResize()
 {
-    D3DApp::OnResize();
+	D3DApp::OnResize();
 
-    mCamera.SetLens(0.25f * MathHelper::Pi, AspectRatio(), 1.0f, 1000.0f);
+	mCamera.SetLens(0.25f * MathHelper::Pi, AspectRatio(), 1.0f, 1000.0f);
 
 }
 
 void App::Update(const GameTimer& gt)
 {
-    OnKeyboardInput(gt);
+	if (!mAppPaused)
+	{
+		OnKeyboardInput(gt);
+	}
+	// Cycle through the circular frame resource array.
+	mCurrFrameResourceIndex = (mCurrFrameResourceIndex + 1) % gNumFrameResources;
+	mCurrFrameResource = mFrameResources[mCurrFrameResourceIndex].get();
 
-    // Cycle through the circular frame resource array.
-    mCurrFrameResourceIndex = (mCurrFrameResourceIndex + 1) % gNumFrameResources;
-    mCurrFrameResource = mFrameResources[mCurrFrameResourceIndex].get();
+	// Has the GPU finished processing the commands of the current frame resource?
+	// If not, wait until the GPU has completed commands up to this fence point.
+	if (mCurrFrameResource->Fence != 0 && mFence->GetCompletedValue() < mCurrFrameResource->Fence)
+	{
+		HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
+		ThrowIfFailed(mFence->SetEventOnCompletion(mCurrFrameResource->Fence, eventHandle));
+		WaitForSingleObject(eventHandle, INFINITE);
+		CloseHandle(eventHandle);
+	}
 
-    // Has the GPU finished processing the commands of the current frame resource?
-    // If not, wait until the GPU has completed commands up to this fence point.
-    if(mCurrFrameResource->Fence != 0 && mFence->GetCompletedValue() < mCurrFrameResource->Fence)
-    {
-        HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
-        ThrowIfFailed(mFence->SetEventOnCompletion(mCurrFrameResource->Fence, eventHandle));
-        WaitForSingleObject(eventHandle, INFINITE);
-        CloseHandle(eventHandle);
-    }
+	/*std::wstring output = L"Delta:" + to_wstring(gt.DeltaTime()) + L"\n";
+	OutputDebugString(output.c_str());*/
 
+	UpdatePlayer2(gt);
 	AnimateMaterials(gt);
-	MoveCars(gt);
-	MoveSkulls(gt);
+
+	if (gameClient->gameActive)MoveCars(gt);
+	if (sPMode) MoveSkulls(gt);
 	UpdateObjectCBs(gt);
 	UpdateMaterialBuffer(gt);
 	UpdateMainPassCB(gt);
@@ -436,30 +500,30 @@ void App::Draw(const GameTimer& gt)
 
 void App::OnMouseDown(WPARAM btnState, int x, int y)
 {
-    mLastMousePos.x = x;
-    mLastMousePos.y = y;
+	mLastMousePos.x = x;
+	mLastMousePos.y = y;
 
-    SetCapture(mhMainWnd);
+	SetCapture(mhMainWnd);
 }
 
 void App::OnMouseUp(WPARAM btnState, int x, int y)
 {
-    ReleaseCapture();
+	ReleaseCapture();
 }
 
 void App::OnMouseMove(WPARAM btnState, int x, int y)
 {
-        if ((btnState & MK_LBUTTON) != 0)
-        {
-            // Make each pixel correspond to a quarter of a degree.
-            float dx = XMConvertToRadians(0.25f * static_cast<float>(x - mLastMousePos.x));
-            float dy = XMConvertToRadians(0.25f * static_cast<float>(y - mLastMousePos.y));
-            mCamera.Pitch(dy);
-            mCamera.RotateY(dx);
-        }
+	if ((btnState & MK_LBUTTON) != 0)
+	{
+		// Make each pixel correspond to a quarter of a degree.
+		float dx = XMConvertToRadians(0.25f * static_cast<float>(x - mLastMousePos.x));
+		float dy = XMConvertToRadians(0.25f * static_cast<float>(y - mLastMousePos.y));
+		mCamera.Pitch(dy);
+		mCamera.RotateY(dx);
+	}
 
-        mLastMousePos.x = x;
-        mLastMousePos.y = y;
+	mLastMousePos.x = x;
+	mLastMousePos.y = y;
 }
 
 bool App::collisionCheck(XMVECTOR& firstboxmin, XMVECTOR& firstboxmax, XMMATRIX& firstboxworld, XMVECTOR& secondboxmin, XMVECTOR& secondboxmax, XMMATRIX& secondboxworld)
@@ -688,7 +752,7 @@ XMFLOAT3 App::makeFloor(XMFLOAT3 first, XMFLOAT3 second)
 }
 
 void App::BuildEnt(string name, XMFLOAT3 pos, XMFLOAT3 right, XMFLOAT3 up, XMFLOAT3 look) {
-	ents.insert(make_pair(name, new Entity{pos, right, up, look}));
+	ents.insert(make_pair(name, new Entity{ pos, right, up, look }));
 }
 
 void App::BuildEnt(string name)
@@ -699,9 +763,9 @@ void App::BuildEnt(string name)
 Entity* App::FindEnt(string name) {
 	return ents.find(name)->second;
 }
- 
-void App::collision(string ent, XMFLOAT3& pos, float dt) {
-	
+
+void App::collision(string ent, XMFLOAT3& curPos, float dt) {
+
 	std::map<string, Entity*>::iterator it = ents.begin();
 	while (it != ents.end()) {
 
@@ -709,12 +773,21 @@ void App::collision(string ent, XMFLOAT3& pos, float dt) {
 		//OutputDebugString(L"\n");
 
 		if (Physics::collisionCheck(FindEnt(ent), FindEnt(it->first)) && ent != it->first) {
-			
-			Physics::handleCollision(FindEnt(ent), FindEnt(it->first), pos,dt);
+
+			Physics::handleCollision(FindEnt(ent), FindEnt(it->first), curPos, dt);
 
 			XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
 			XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
-			XMMATRIX boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
+			XMMATRIX boxOffset = XMMatrixTranslation(curPos.x, curPos.y, curPos.z);
+			if (it->first.compare("road") == 0) {
+				XMFLOAT3 newPos = FindEnt(ent)->GetStartPosition3f();
+				boxOffset = XMMatrixTranslation(newPos.x - pos.x, newPos.y - pos.y, newPos.z - pos.z);
+				FindEnt(ent)->returnToStart();
+				mCamera.SetPosition(FindEnt(ent)->getHPos());
+				mCamera.UpdateViewMatrix();
+				pos = newPos;
+			}
+
 			XMMATRIX boxWorld = boxRotate * boxScale * boxOffset;
 
 			XMStoreFloat4x4(&firstbox->World, boxWorld);
@@ -722,6 +795,19 @@ void App::collision(string ent, XMFLOAT3& pos, float dt) {
 
 			FindEnt(ent)->calcAABB(boxBoundingVertPosArray);
 			calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
+
+			if (it->first.compare("endplatform") == 0 && gameClient->winner == 0) {
+				if (!sPMode) {
+					gameClient->sendToServerWin();
+					endTime = mTimer.TotalTime();
+				}
+				else {
+					gameClient->winner = 1;
+					gameClient->gameActive = false;
+					endTime = mTimer.TotalTime();
+				}
+			}
+
 		}
 		else {
 			//OutputDebugString(L"No collision \n");
@@ -732,111 +818,116 @@ void App::collision(string ent, XMFLOAT3& pos, float dt) {
 
 void App::OnKeyboardInput(const GameTimer& gt)
 {
-    const float dt = gt.DeltaTime();
-	PhysicsEntity* entPhys = FindEnt("player")->GetPhysHolder();
+	if (gameClient->gameActive) {
+		const float dt = gt.DeltaTime();
+		PhysicsEntity* entPhys = FindEnt("player")->GetPhysHolder();
 
+		float maxSpeed = 15.0f * dt;
+		float boxSpeedX = maxSpeed,
+			boxSpeedZ = maxSpeed;
+		bool moveZ = false, moveX = false;
 
-	float maxSpeed = 15.0f * dt;
-    float boxSpeedX = maxSpeed, 
-		  boxSpeedZ = maxSpeed;
-	bool moveZ = false, moveX = false;
+		//if (GetAsyncKeyState('Q') & 0x8000) {
+		//	entPhys->setAngleNegative();
+		//}
+		//if (GetAsyncKeyState('E') & 0x8000) {
+		//	entPhys->setAnglePositive();
+		//	//keyboardInput.y -= boxSpeed;
+		//}
 
-	if (GetAsyncKeyState('Q') & 0x8000) {
-		entPhys->setAngleNegative();
-	}
-	if (GetAsyncKeyState('E') & 0x8000) {
-		entPhys->setAnglePositive();		
-		//keyboardInput.y -= boxSpeed;
-	}
-
-	if (GetAsyncKeyState('W') & 0x8000) {
-		entPhys->setZIntentPositive();
-		moveZ = true;
-		//keyboardInput.z += boxSpeed;
-	}
-	if (GetAsyncKeyState('S') & 0x8000) {
-		entPhys->setZIntentNegative();
-		moveZ = true;
-		//keyboardInput.z -= boxSpeed;
-	}
-	if (GetAsyncKeyState('A') & 0x8000){
-		entPhys->setXIntentNegative();
-		moveX = true;
-		//keyboardInput.x -= boxSpeed;
-	}
-	if (GetAsyncKeyState('D') & 0x8000) {
-		entPhys->setXIntentPositive();
-		moveX = true;
-		//keyboardInput.x += boxSpeed;
-	}
-	if (GetAsyncKeyState(' ') & 0x8000) {
-		entPhys->decrementJump();		
-	}
-
-	if (moveZ) {
-		float tempT = FindEnt("player")->getCountDownZ() - decel;
-		if (tempT > 0) {
-			FindEnt("player")->setCountDownZ(tempT);
+		if (GetAsyncKeyState('W') & 0x8000) {
+			entPhys->setZIntentPositive();
+			moveZ = true;
+			//keyboardInput.z += boxSpeed;
 		}
-		else {
-			FindEnt("player")->resetCountDownZ(true);			
+		if (GetAsyncKeyState('S') & 0x8000) {
+			entPhys->setZIntentNegative();
+			moveZ = true;
+			//keyboardInput.z -= boxSpeed;
 		}
-		boxSpeedZ *= cos(FindEnt("player")->getCountDownZ());
+		if (GetAsyncKeyState('A') & 0x8000) {
+			entPhys->setXIntentNegative();
+			moveX = true;
+			//keyboardInput.x -= boxSpeed;
+		}
+		if (GetAsyncKeyState('D') & 0x8000) {
+			entPhys->setXIntentPositive();
+			moveX = true;
+			//keyboardInput.x += boxSpeed;
+		}
+		if (GetAsyncKeyState(' ') & 0x8000) {
+			entPhys->decrementJump();
+		}
+
+		if (moveZ) {
+			float tempT = FindEnt("player")->getCountDownZ() - decel;
+			if (tempT > 0) {
+				FindEnt("player")->setCountDownZ(tempT);
+			}
+			else {
+				FindEnt("player")->resetCountDownZ(true);
+			}
+			boxSpeedZ *= cos(FindEnt("player")->getCountDownZ());
+		}
+		else { FindEnt("player")->resetCountDownZ(false); }
+
+		if (moveX) {
+			float tempT = FindEnt("player")->getCountDownX() - decel;
+			if (tempT > 0) {
+				FindEnt("player")->setCountDownX(tempT);
+			}
+			else {
+				FindEnt("player")->resetCountDownX(true);
+			}
+			boxSpeedX *= cos(FindEnt("player")->getCountDownX());
+		}
+		else { FindEnt("player")->resetCountDownX(false); }
+
+		//box translation//
+		XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
+		XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
+		XMMATRIX boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
+		XMMATRIX boxWorld = boxRotate * boxScale * boxOffset;
+
+		firstbox->Geo;
+
+		XMStoreFloat4x4(&FindEnt("player")->World, boxWorld);
+		XMStoreFloat4x4(&firstbox->World, boxWorld);
+
+		FindEnt("player")->calcAABB(boxBoundingVertPosArray);
+
+		//calculate new bounding box of first box
+		calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
+
+		//Physics::XYZPhysics(pos, entPhys, boxSpeed);
+		Physics::XYZPhysics(pos, entPhys, 5.0f * dt, boxSpeedX, boxSpeedZ);
+		FindEnt("player")->SetPosition(pos);
+
+		collision("player", pos, dt);
+		//FindEnt("player")->SetPosition(pos);
+
+		if (!sPMode) {
+			gameClient->sendToServer(pos.x, pos.y, pos.z);
+		}
+
+
+		//formerly mboxritemmovable
+		firstbox->NumFramesDirty++;
+
 	}
-	else{ FindEnt("player")->resetCountDownZ(false); }
-
-	if (moveX) {
-		float tempT = FindEnt("player")->getCountDownX() - decel;
-		if (tempT > 0) {
-			FindEnt("player")->setCountDownX(tempT);
-		}
-		else {
-			FindEnt("player")->resetCountDownX(true);
-		}
-		boxSpeedX *= cos(FindEnt("player")->getCountDownX());
-	}
-	else { FindEnt("player")->resetCountDownX(false); }
-	
-	//box translation//
-	XMMATRIX boxRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
-	XMMATRIX boxScale = XMMatrixScaling(2.0f, 2.0f, 2.0f);
-	XMMATRIX boxOffset = XMMatrixTranslation(pos.x, pos.y, pos.z);
-	XMMATRIX boxWorld = boxRotate * boxScale * boxOffset;
-
-	//gameClient->sendToServer(pos.x, pos.y, pos.z);
-	firstbox->Geo;
-
-	XMStoreFloat4x4(&FindEnt("player")->World,boxWorld);
-	XMStoreFloat4x4(&firstbox->World, boxWorld);
-
-	FindEnt("player")->calcAABB(boxBoundingVertPosArray);
-
-	//calculate new bounding box of first box
-	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
-
-	//Physics::XYZPhysics(pos, entPhys, boxSpeed);
-	Physics::XYZPhysics(pos, entPhys, 5.0f * dt, boxSpeedX, boxSpeedZ);
-	FindEnt("player")->SetPosition(pos);
-
-	collision("player", pos, dt);
-	//FindEnt("player")->SetPosition(pos);
-
-	//formerly mboxritemmovable
-    firstbox->NumFramesDirty++;
-
-	// boxSpeed 
-	//boxSpeed = 5.0f * dt;
-
-    /*ent.SetPosition(pos);
 
 	if (!isTopDown) {
-		mCamera.SetPosition(ent.getHPos());
-	}*/
+		mCamera.SetPosition(FindEnt("player")->getHPos());
+	}
+	mCamera.UpdateViewMatrix();
+}
 
-    if (!isTopDown) {
-        mCamera.SetPosition(FindEnt("player")->getHPos());
-    }
-    mCamera.UpdateViewMatrix();
+
+void App::UpdatePlayer2(const GameTimer& gt) {
+	FindEnt("block")->World = secondbox->World;
+	FindEnt("block")->calcAABB(boxBoundingVertPosArray);
+	calcAABB(boxBoundingVertPosArray, secondbox->World, secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex);
+	secondbox->NumFramesDirty++;
 }
 
 void App::MoveSkulls(const GameTimer& gt) {
@@ -849,7 +940,7 @@ void App::MoveSkulls(const GameTimer& gt) {
 			string entname = "skull" + std::to_string(curIndex);
 			XMMATRIX world = XMLoadFloat4x4(&e->World);
 
-			if (skullControllers[curIndex].isInRange(FindEnt("player")) ) {
+			if (skullControllers[curIndex].isInRange(FindEnt("player"))) {
 				Entity* target = skullControllers[curIndex].CalcClosest(FindEnt("player"), nullptr);
 				XMFLOAT3 skullPrevPos = FindEnt(entname)->GetPosition3f();
 				XMFLOAT3 skullMov = skullControllers[curIndex].CalcMove(target);
@@ -859,35 +950,43 @@ void App::MoveSkulls(const GameTimer& gt) {
 
 				XMStoreFloat4x4(&e->World, skullWorld);
 				XMStoreFloat4x4(&FindEnt(entname)->World, skullWorld);
-				
+
 			}
 			else {
 
 				XMStoreFloat4x4(&e->World, world);
 				XMStoreFloat4x4(&FindEnt(entname)->World, world);
 			}
-			
+
 			FindEnt(entname)->calcAABB(skullBoundingVertPosArray);
 			e->NumFramesDirty++;
 		}
 	}
 }
- 
+
 void App::MoveCars(const GameTimer& gt) {
 	const float dt = gt.DeltaTime();
-	XMFLOAT3 mov = { 0.0f, 0.0f, 3.0f * dt };
 	for (auto& e : mAllRitems) {
-		if (e->ObjCBIndex >= carsCBIndexStart && e->ObjCBIndex < carsCBIndexStart+carCount) {
+		XMFLOAT3 mov = { 0.0f, 0.0f, 3.0f * dt };
+		if (e->ObjCBIndex >= carsCBIndexStart && e->ObjCBIndex < carsCBIndexStart + carCount) {
 			string entname = "block" + std::to_string(e->ObjCBIndex);
 			XMMATRIX world = XMLoadFloat4x4(&e->World);
-			//XMMATRIX boxScale = XMMatrixScaling(0.5f, 0.5f, 0.5f);
+			if (e->ObjCBIndex < carsCBIndexStart + carCount / 3 || e->ObjCBIndex >= carsCBIndexStart + (2 * carCount / 3)) {
+				mov = { 0.0f, 0.0f, -3.0f * dt };
+			}
 			XMMATRIX boxOffset = XMMatrixTranslation(mov.x, mov.y, mov.z);
 			XMMATRIX boxWorld = world * boxOffset;
 			if (e->World(3, 2) > (20 * 8.0f)) {
-				XMMATRIX transl = XMMatrixTranslation(5.0f, -0.8f, 0.0f);
-				if(e->ObjCBIndex >= carsCBIndexStart + carCount/3)transl = XMMatrixTranslation(0.0f, -0.8f, 0.0f);
-				if(e->ObjCBIndex >= carsCBIndexStart + (2*carCount / 3))transl = XMMatrixTranslation(-5.0f, -0.8f, 0.0f);
+				XMMATRIX transl = XMMatrixTranslation(0.0f, -0.8f, 0.0f);
 				XMMATRIX resetPos = XMMatrixScaling(0.5f, 0.5f, 0.5f) * transl * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f);
+				XMStoreFloat4x4(&e->World, resetPos);
+				XMStoreFloat4x4(&FindEnt(entname)->World, resetPos);
+			}
+			else if (e->World(3, 2) < 0) {
+				XMMATRIX transl = XMMatrixTranslation(5.0f, -0.8f, 0.0f);
+				if (e->ObjCBIndex < carsCBIndexStart + carCount / 3)transl = XMMatrixTranslation(5.0f, -0.8f, 20 * 8.0f);
+				if (e->ObjCBIndex >= carsCBIndexStart + (2 * carCount / 3))transl = XMMatrixTranslation(-5.0f, -0.8f, 20 * 8.0f);
+				XMMATRIX resetPos = XMMatrixScaling(0.5f, 0.5f, 0.5f) * transl;// *XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f);
 				XMStoreFloat4x4(&e->World, resetPos);
 				XMStoreFloat4x4(&FindEnt(entname)->World, resetPos);
 			}
@@ -989,16 +1088,25 @@ void App::UpdateMainPassCB(const GameTimer& gt)
 	mMainPassCB.Lights[1].Strength = { 0.3f, 0.3f, 0.3f };
 	mMainPassCB.Lights[2].Direction = { 0.0f, -0.707f, -0.707f };
 	mMainPassCB.Lights[2].Strength = { 0.15f, 0.15f, 0.15f };
-	//mMainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
+	if (!gameClient->gameActive || gameClient->winner < 0) {
+		mMainPassCB.Lights[0].Strength = { 1.0f, 0.0f, 0.0f };
+		mMainPassCB.Lights[1].Strength = { 1.0f, 0.0f, 0.0f };
+		mMainPassCB.Lights[2].Strength = { 1.0f, 0.0f, 0.0f };
+	}
+	if (gameClient->winner > 0) {
+		mMainPassCB.Lights[0].Strength = { 0.0f, 1.0f, 0.0f };
+		mMainPassCB.Lights[1].Strength = { 0.0f, 1.0f, 0.0f };
+		mMainPassCB.Lights[2].Strength = { 0.0f, 1.0f, 0.0f };
+	}
 	for (int i = 3; i < 6; ++i) {
 		//mMainPassCB.Lights[i].Direction = { 0.0f, -5.0f, -10.0f };
 		mMainPassCB.Lights[i].Strength = { 1.0f, 0.0f, 0.0f };
-		mMainPassCB.Lights[i].Position = { ((i-3)*5.0f)-5.0f, 1.0f, 2.6f*59};
+		mMainPassCB.Lights[i].Position = { ((i - 3) * 5.0f) - 5.0f, 1.0f, 2.6f * 59 };
 		//mMainPassCB.Lights[i].FalloffStart = 0.5f;
 		mMainPassCB.Lights[i].FalloffEnd = 20.0f;
 		//mMainPassCB.Lights[i].SpotPower = 15.0f;
 	}
-	
+
 	auto currPassCB = mCurrFrameResource->PassCB.get();
 	currPassCB->CopyData(0, mMainPassCB);
 }
@@ -1036,18 +1144,23 @@ void App::LoadTextures()
 }
 
 void App::SetupClientServer() {
-	/*while (true) {
-		if (GetAsyncKeyState('1') & 0x8000) {*/
+	while (true) {
+		if (GetAsyncKeyState('1') & 0x8000) {
 			gameServer = new Server();
 			gameClient = new Client();
-		/*	isHost = true;
+			isHost = true;
 			break;
 		}
 		if (GetAsyncKeyState('2') & 0x8000) {
 			gameClient = new Client();
 			break;
 		}
-	}*/
+		if (GetAsyncKeyState('3') & 0x8000) {
+			gameClient = new Client();
+			sPMode = true;
+			break;
+		}
+	}
 }
 
 void App::BuildDescriptorHeaps()
@@ -1141,7 +1254,7 @@ void App::BuildRootSignature()
 	HRESULT hr = D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1,
 		serializedRootSig.GetAddressOf(), errorBlob.GetAddressOf());
 
-	if(errorBlob != nullptr)
+	if (errorBlob != nullptr)
 	{
 		::OutputDebugStringA((char*)errorBlob->GetBufferPointer());
 	}
@@ -1178,9 +1291,9 @@ void App::BuildShadersAndInputLayout()
 
 void App::BuildShapeGeometry()
 {
-    GeometryGenerator geoGen;
+	GeometryGenerator geoGen;
 	box = geoGen.CreateBox(0.5f, 0.5f, 0.5f, 3);
-	GeometryGenerator::MeshData box2 = geoGen.CreateBox(1.5f, 0.5f, 1.5f, 3);
+	GeometryGenerator::MeshData box2 = geoGen.CreateBox(0.5f, 0.5f, 0.5f, 3);
 	GeometryGenerator::MeshData grid = geoGen.CreateGrid(15.0f, 5.0f, 30, 20);
 	road = grid;
 	GeometryGenerator::MeshData tunnel = geoGen.CreateTunnel(15.0f, 2.2f, 10.0f, 3);
@@ -1195,28 +1308,28 @@ void App::BuildShapeGeometry()
 	// Cache the vertex offsets to each object in the concatenated vertex buffer.
 	UINT boxVertexOffset = 0;
 	UINT box2VertexOffset = (UINT)box.Vertices.size();
-	UINT gridVertexOffset = box2VertexOffset+ (UINT)box2.Vertices.size();
-	UINT tunnelVertexOffset = gridVertexOffset+ (UINT)grid.Vertices.size();
+	UINT gridVertexOffset = box2VertexOffset + (UINT)box2.Vertices.size();
+	UINT tunnelVertexOffset = gridVertexOffset + (UINT)grid.Vertices.size();
 	UINT sphereVertexOffset = tunnelVertexOffset + (UINT)tunnel.Vertices.size();
 
 	// Cache the starting index for each object in the concatenated index buffer.
 	UINT boxIndexOffset = 0;
 	UINT box2IndexOffset = (UINT)box.Indices32.size();
-	UINT gridIndexOffset = box2IndexOffset+(UINT)box2.Indices32.size();
-	UINT tunnelIndexOffset = gridIndexOffset+(UINT)grid.Indices32.size();
+	UINT gridIndexOffset = box2IndexOffset + (UINT)box2.Indices32.size();
+	UINT tunnelIndexOffset = gridIndexOffset + (UINT)grid.Indices32.size();
 	UINT sphereIndexOffset = tunnelIndexOffset + (UINT)tunnel.Indices32.size();
-    // Define the SubmeshGeometry that cover different 
-    // regions of the vertex/index buffers.
+	// Define the SubmeshGeometry that cover different 
+	// regions of the vertex/index buffers.
 
 	SubmeshGeometry boxSubmesh;
 	boxSubmesh.IndexCount = (UINT)box.Indices32.size();
 	boxSubmesh.StartIndexLocation = boxIndexOffset;
 	boxSubmesh.BaseVertexLocation = boxVertexOffset;
 
-    SubmeshGeometry box2Submesh;
-    box2Submesh.IndexCount = (UINT)box2.Indices32.size();
-    box2Submesh.StartIndexLocation = box2IndexOffset;
-    box2Submesh.BaseVertexLocation = box2VertexOffset;
+	SubmeshGeometry box2Submesh;
+	box2Submesh.IndexCount = (UINT)box2.Indices32.size();
+	box2Submesh.StartIndexLocation = box2IndexOffset;
+	box2Submesh.BaseVertexLocation = box2VertexOffset;
 
 	SubmeshGeometry gridSubmesh;
 	gridSubmesh.IndexCount = (UINT)grid.Indices32.size();
@@ -1233,27 +1346,27 @@ void App::BuildShapeGeometry()
 	sphereSubmesh.StartIndexLocation = sphereIndexOffset;
 	sphereSubmesh.BaseVertexLocation = sphereVertexOffset;
 
-    auto totalVertexCount =
-        box.Vertices.size() + box2.Vertices.size() +
-        grid.Vertices.size() + tunnel.Vertices.size() + sphere.Vertices.size();
+	auto totalVertexCount =
+		box.Vertices.size() + box2.Vertices.size() +
+		grid.Vertices.size() + tunnel.Vertices.size() + sphere.Vertices.size();
 
 	std::vector<Vertex> vertices(totalVertexCount);
 
 	UINT k = 0;
-	for(size_t i = 0; i < box.Vertices.size(); ++i, ++k)
+	for (size_t i = 0; i < box.Vertices.size(); ++i, ++k)
 	{
 		vertices[k].Pos = box.Vertices[i].Position;
 		vertices[k].Normal = box.Vertices[i].Normal;
 		vertices[k].TexC = box.Vertices[i].TexC;
 	}
 
-    for (size_t i = 0; i < box2.Vertices.size(); ++i, ++k)
-    {
-        vertices[k].Pos = box2.Vertices[i].Position;
+	for (size_t i = 0; i < box2.Vertices.size(); ++i, ++k)
+	{
+		vertices[k].Pos = box2.Vertices[i].Position;
 		vertices[k].Normal = box2.Vertices[i].Normal;
 		vertices[k].TexC = box2.Vertices[i].TexC;
-    }
-	for(size_t i = 0; i < grid.Vertices.size(); ++i, ++k)
+	}
+	for (size_t i = 0; i < grid.Vertices.size(); ++i, ++k)
 	{
 		vertices[k].Pos = grid.Vertices[i].Position;
 		vertices[k].Normal = grid.Vertices[i].Normal;
@@ -1280,8 +1393,8 @@ void App::BuildShapeGeometry()
 	indices.insert(indices.end(), std::begin(tunnel.GetIndices16()), std::end(tunnel.GetIndices16()));
 	indices.insert(indices.end(), std::begin(sphere.GetIndices16()), std::end(sphere.GetIndices16()));
 
-    const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
-    const UINT ibByteSize = (UINT)indices.size()  * sizeof(std::uint16_t);
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
 
 	auto geo = std::make_unique<MeshGeometry>();
 	geo->Name = "shapeGeo";
@@ -1451,6 +1564,8 @@ void App::BuildTruckGeometry()
 	{
 		fin >> vertices[i].Pos.x >> vertices[i].Pos.y >> vertices[i].Pos.z;
 		//fin >> vertices[i].TexC.x >> vertices[i].TexC.y;
+		/*vertices[i].TexC.x = vertices[i].Pos.x;
+		vertices[i].TexC.y = vertices[i].Pos.y;*/
 		fin >> vertices[i].Normal.x >> vertices[i].Normal.y >> vertices[i].Normal.z;
 	}
 
@@ -1500,7 +1615,7 @@ void App::BuildTruckGeometry()
 	submesh.BaseVertexLocation = 0;
 
 	geo->DrawArgs["semitruck"] = submesh;
-	
+
 
 	mGeometries[geo->Name] = std::move(geo);
 
@@ -1707,7 +1822,7 @@ void App::BuildRenderItems()
 	XMMATRIX box1Translation;
 	XMMATRIX box2Translation;
 	UINT objCBIndex = 0;
-	
+
 	auto skyRitem = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&skyRitem->World, XMMatrixScaling(5000.0f, 5000.0f, 5000.0f));
 	skyRitem->TexTransform = MathHelper::Identity4x4();
@@ -1721,21 +1836,22 @@ void App::BuildRenderItems()
 	mRitemLayer[(int)RenderLayer::Sky].push_back(skyRitem.get());
 	mAllRitems.push_back(std::move(skyRitem));
 
-	//if (gameServer != nullptr) {
+	if (isHost) {
 		//can probably remove the translations because we're using pos global
 		box1Translation = XMMatrixTranslation(-2.5f, 2.0f, 0.0f);
-		box2Translation = XMMatrixTranslation(2.5f, 0.5f, 0.0f);
-		pos = { -2.5f, 0.5f, 0.0f };
-	//}
-	//else {
-	//	//can probably remove the translations because we're using pos global
-	//	box1Translation = XMMatrixTranslation(2.5f, 0.5f, 0.0f);
-	//	box2Translation = XMMatrixTranslation(-2.5f, 0.5f, 0.0f);
-	//	pos = { 2.5f, 0.5f, 0.0f };
-	//}
+		box2Translation = XMMatrixTranslation(2.5f, 2.0f, 0.0f);
+		pos = { -2.5f, 2.0f, 0.0f };
+	}
+	else {
+		//can probably remove the translations because we're using pos global
+		box1Translation = XMMatrixTranslation(2.5f, 2.0f, 0.0f);
+		box2Translation = XMMatrixTranslation(-2.5f, 2.0f, 0.0f);
+		pos = { 2.5f, 2.0f, 0.0f };
+	}
 	auto boxRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(1.0f, 1.0f, 1.0f) * box1Translation);
-	XMStoreFloat4x4(&boxRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f)); 
+	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box1Translation);
+	XMStoreFloat4x4(&FindEnt("player")->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box1Translation);
+	XMStoreFloat4x4(&boxRitem->TexTransform, XMMatrixScaling(2.0f, 2.0f, 2.0f));
 	boxRitem->ObjCBIndex = objCBIndex++;
 	boxRitem->Mat = mMaterials["bricks0"].get();
 	boxRitem->Geo = mGeometries["shapeGeo"].get();
@@ -1743,37 +1859,43 @@ void App::BuildRenderItems()
 	boxRitem->IndexCount = boxRitem->Geo->DrawArgs["box"].IndexCount;
 	boxRitem->StartIndexLocation = boxRitem->Geo->DrawArgs["box"].StartIndexLocation;
 	boxRitem->BaseVertexLocation = boxRitem->Geo->DrawArgs["box"].BaseVertexLocation;
-    firstbox = boxRitem.get();
-	mRitemLayer[(int)RenderLayer::Opaque].push_back(boxRitem.get());
-	mAllRitems.push_back(std::move(boxRitem));
+	firstbox = boxRitem.get();
 
 	FindEnt("player")->calcAABB(boxBoundingVertPosArray);
+	FindEnt("player")->SetPosition(pos);
+	mCamera.SetPosition(FindEnt("player")->getHPos());
+	mCamera.UpdateViewMatrix();
+	FindEnt("player")->SetPositionStart();
 	calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
-	
-    auto boxRitem2 = std::make_unique<RenderItem>();
-    XMStoreFloat4x4(&boxRitem2->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box2Translation);
+
+	auto boxRitem2 = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&boxRitem2->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box2Translation);
 	XMStoreFloat4x4(&FindEnt("block")->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * box2Translation);
-	XMStoreFloat4x4(&boxRitem2->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
+	XMStoreFloat4x4(&boxRitem2->TexTransform, XMMatrixScaling(2.0f, 2.0f, 2.0f));
 	boxRitem2->ObjCBIndex = objCBIndex++;
 	boxRitem2->Mat = mMaterials["bricks0"].get();
-    boxRitem2->Geo = mGeometries["shapeGeo"].get();
-    boxRitem2->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-    boxRitem2->IndexCount = boxRitem2->Geo->DrawArgs["box2"].IndexCount;
-    boxRitem2->StartIndexLocation = boxRitem2->Geo->DrawArgs["box2"].StartIndexLocation;
-    boxRitem2->BaseVertexLocation = boxRitem2->Geo->DrawArgs["box2"].BaseVertexLocation;
+	boxRitem2->Geo = mGeometries["shapeGeo"].get();
+	boxRitem2->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	boxRitem2->IndexCount = boxRitem2->Geo->DrawArgs["box2"].IndexCount;
+	boxRitem2->StartIndexLocation = boxRitem2->Geo->DrawArgs["box2"].StartIndexLocation;
+	boxRitem2->BaseVertexLocation = boxRitem2->Geo->DrawArgs["box2"].BaseVertexLocation;
 	secondbox = boxRitem2.get();
-	//gameClient->setPlayer(boxRitem2.get());
-	mRitemLayer[(int)RenderLayer::Opaque].push_back(boxRitem2.get());
-    mAllRitems.push_back(std::move(boxRitem2));
-
 	//OutputDebugString(L"CalcAABB of block entity\n");
 	FindEnt("block")->calcAABB(boxBoundingVertPosArray);
 	calcAABB(boxBoundingVertPosArray, secondbox->World, secondbox->boundingboxminvertex, secondbox->boundingboxmaxvertex);
 
+	gameClient->setPlayer(boxRitem2.get());
+
+	mRitemLayer[(int)RenderLayer::Opaque].push_back(boxRitem.get());
+	mAllRitems.push_back(std::move(boxRitem));
+	mRitemLayer[(int)RenderLayer::Opaque].push_back(boxRitem2.get());
+	mAllRitems.push_back(std::move(boxRitem2));
+
+
 
 	BuildEnt("startplatform");
 
-    auto startTunnelRitem = std::make_unique<RenderItem>();
+	auto startTunnelRitem = std::make_unique<RenderItem>();
 	startTunnelRitem->World = MathHelper::Identity4x4();
 	XMStoreFloat4x4(&FindEnt("startplatform")->World, XMMatrixTranslation(0.0f, -1.1f, 0.0f));
 	XMStoreFloat4x4(&startTunnelRitem->World, XMMatrixTranslation(0.0f, -1.1f, 0.0f));
@@ -1794,7 +1916,7 @@ void App::BuildRenderItems()
 	auto roadRitem = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&FindEnt("road")->World, XMMatrixScaling(1.0f, 1.0f, 32.0f) * XMMatrixTranslation(0.0f, -2.0f, 80.0f));
 	XMStoreFloat4x4(&roadRitem->World, XMMatrixScaling(1.0f, 1.0f, 32.0f) * XMMatrixTranslation(0.0f, -2.0f, 80.0f));
-	XMStoreFloat4x4(&roadRitem->TexTransform, XMMatrixScaling(1.0f, 2.0f, 1.0f) * XMMatrixRotationRollPitchYaw(0.0f, 0.0f, 3.14f/2));
+	XMStoreFloat4x4(&roadRitem->TexTransform, XMMatrixScaling(1.0f, 2.0f, 1.0f) * XMMatrixRotationRollPitchYaw(0.0f, 0.0f, 3.14f / 2));
 	roadRitem->ObjCBIndex = objCBIndex++;
 	roadRitem->Mat = mMaterials["mirror0"].get();
 	roadRitem->Geo = mGeometries["shapeGeo"].get();
@@ -1809,8 +1931,8 @@ void App::BuildRenderItems()
 	BuildEnt("endplatform");
 	auto endTunnelRitem = std::make_unique<RenderItem>();
 	endTunnelRitem->World = MathHelper::Identity4x4();
-	XMStoreFloat4x4(&FindEnt("endplatform")->World, XMMatrixTranslation(0.0f, -1.1f, -2.7f * 59) * XMMatrixRotationRollPitchYaw(0.0f,3.14f,0.0f));
-	XMStoreFloat4x4(&endTunnelRitem->World, XMMatrixTranslation(0.0f, -1.1f, -2.7f*59)* XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
+	XMStoreFloat4x4(&FindEnt("endplatform")->World, XMMatrixTranslation(0.0f, -1.1f, -2.7f * 59) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
+	XMStoreFloat4x4(&endTunnelRitem->World, XMMatrixTranslation(0.0f, -1.1f, -2.7f * 59) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
 	XMStoreFloat4x4(&endTunnelRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 	endTunnelRitem->ObjCBIndex = objCBIndex++;
 	endTunnelRitem->Mat = mMaterials["tile0"].get();
@@ -1824,9 +1946,9 @@ void App::BuildRenderItems()
 	FindEnt("endplatform")->calcAABB(platformBoundingVertPosArray);
 
 	carsCBIndexStart = objCBIndex;
-	for (int i = 0; i < carCount/3; ++i) {
+	for (int i = 0; i < carCount / 3; ++i) {
 		auto platformRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(-5.0f, -0.8f, (i * -12.0f)) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
+		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(-5.0f, -0.8f, (i * 12.0f)));
 		XMStoreFloat4x4(&platformRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 		platformRitem->ObjCBIndex = objCBIndex++;
 		string entname = "block" + std::to_string(platformRitem->ObjCBIndex);
@@ -1838,12 +1960,12 @@ void App::BuildRenderItems()
 		platformRitem->BaseVertexLocation = platformRitem->Geo->DrawArgs["semitruck"].BaseVertexLocation;
 		mRitemLayer[(int)RenderLayer::Opaque].push_back(platformRitem.get());
 		mAllRitems.push_back(std::move(platformRitem));
-		
+
 		//code needed to check for collision between entities
 		////OutputDebugStringA(entname.c_str());
 		////OutputDebugString(L"\n");
 		BuildEnt(entname);
-		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(-5.0f, -0.8f, (i * -12.0f)) /** XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f)*/);
+		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(-5.0f, -0.8f, (i * 12.0f)) /** XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f)*/);
 		FindEnt(entname)->calcAABB(carBoundingVertPosArray);
 
 	}
@@ -1873,7 +1995,7 @@ void App::BuildRenderItems()
 
 	for (int i = 0; i < carCount / 3; ++i) {
 		auto platformRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, -0.8f, (i * -12.0f)) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
+		XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, -0.8f, (i * 12.0f)));
 		XMStoreFloat4x4(&platformRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 		platformRitem->ObjCBIndex = objCBIndex++;
 		string entname = "block" + std::to_string(platformRitem->ObjCBIndex);
@@ -1889,10 +2011,10 @@ void App::BuildRenderItems()
 		////OutputDebugStringA(entname.c_str());
 		////OutputDebugString(L"\n");
 		BuildEnt(entname);
-		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, -0.8f, (i * -12.0f)) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
+		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, -0.8f, (i * 12.0f)));
 		FindEnt(entname)->calcAABB(carBoundingVertPosArray);
 	}
-	
+
 	BuildEnt("car");
 	auto platformRitem = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&FindEnt("car")->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, 2.0f, 5.0f) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
@@ -1937,7 +2059,7 @@ void App::BuildRenderItems()
 		rightSkullRitem->IndexCount = rightSkullRitem->Geo->DrawArgs["skull"].IndexCount;
 		rightSkullRitem->StartIndexLocation = rightSkullRitem->Geo->DrawArgs["skull"].StartIndexLocation;
 		rightSkullRitem->BaseVertexLocation = rightSkullRitem->Geo->DrawArgs["skull"].BaseVertexLocation;
-		
+
 		mRitemLayer[(int)RenderLayer::Opaque].push_back(leftSkullRitem.get());
 		mRitemLayer[(int)RenderLayer::Opaque].push_back(rightSkullRitem.get());
 		mAllRitems.push_back(std::move(leftSkullRitem));
@@ -1963,6 +2085,7 @@ void App::BuildRenderItems()
 		FindEnt(skullEntname)->calcAABB(skullBoundingVertPosArray);
 	}
 	skullCbIndexMax = objCBIndex;
+
 }
 
 void App::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
