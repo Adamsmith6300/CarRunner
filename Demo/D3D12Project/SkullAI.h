@@ -8,10 +8,8 @@ private:
 
 	Entity* parentSkull;
 
-	Entity* leftSkull;
-	Entity* rightSkull;
-
 	POS initialPos = {};
+	POS nextDest = {};
 
 	bool moved = false; // check if skull has been moved
 	bool ready = true; // check if skull is ready to move
@@ -19,7 +17,6 @@ private:
 public:
 	//SkullAI() {}
 	SkullAI(Entity* parentSkull);
-	SkullAI(Entity* leftSkull, Entity* rightSkull);
 	~SkullAI() {};
 
 	void PrintDescription(); // testing purposes
@@ -34,7 +31,7 @@ public:
 
 	Entity* CalcClosest(Entity* p1, Entity* p2);
 	float CalcDistance(Entity* player);
-	POS CalcTeleportLocation(Entity* target);
+	POS CalcMove(Entity* target);
 
 
 };

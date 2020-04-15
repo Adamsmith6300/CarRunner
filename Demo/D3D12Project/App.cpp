@@ -849,15 +849,17 @@ void App::MoveSkulls(const GameTimer& gt) {
 			string entname = "skull" + std::to_string(curIndex);
 			XMMATRIX world = XMLoadFloat4x4(&e->World);
 
-			if (skullControllers[curIndex].isInRange(FindEnt("player"))) {
+			if (skullControllers[curIndex].isInRange(FindEnt("player")) ) {
 				Entity* target = skullControllers[curIndex].CalcClosest(FindEnt("player"), nullptr);
-				//XMFLOAT3 skullPos = FindEnt(entname)->GetPosition3f();
-				XMFLOAT3 skullMov = skullControllers[curIndex].CalcTeleportLocation(target);
+				XMFLOAT3 skullPrevPos = FindEnt(entname)->GetPosition3f();
+				XMFLOAT3 skullMov = skullControllers[curIndex].CalcMove(target);
 
-				XMMATRIX skullOffset = XMMatrixTranslation(skullMov.x * dt, skullMov.y * dt * 0.8, skullMov.z * dt);
+				XMMATRIX skullOffset = XMMatrixTranslation(skullMov.x * dt, skullMov.y * dt, skullMov.z * dt);
 				XMMATRIX skullWorld = world * skullOffset;
+
 				XMStoreFloat4x4(&e->World, skullWorld);
 				XMStoreFloat4x4(&FindEnt(entname)->World, skullWorld);
+				
 			}
 			else {
 
