@@ -7,27 +7,17 @@ class SkullAI {
 private:
 
 	Entity* parentSkull;
-
-	POS initialPos = {};
-	POS nextDest = {};
-
-	bool moved = false; // check if skull has been moved
-	bool ready = true; // check if skull is ready to move
+	POS posAccumulator = { 0.0f, 0.0f, 0.0f };
+	bool updated = false;
 
 public:
-	//SkullAI() {}
 	SkullAI(Entity* parentSkull);
 	~SkullAI() {};
 
 	void PrintDescription(); // testing purposes
-	void SetInitPos();
-	void ResetPos();
+	void UpdatePos(const POS& newPos);
+	POS GetPosAccumulator();
 	bool isInRange(Entity* player) const;
-
-	void SetSkullReady(bool ready);
-	bool isReady() const;
-	void SetSkullMoved(bool moved);
-	bool isMoved() const;
 
 	Entity* CalcClosest(Entity* p1, Entity* p2);
 	float CalcDistance(Entity* player);

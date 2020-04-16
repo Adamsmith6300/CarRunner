@@ -159,6 +159,7 @@ private:
 
 	// AI related
 	std::vector<SkullAI> skullControllers;
+	UINT skullCount = 10;
 	UINT skullCbIndexStart = 0;
 	UINT skullCbIndexMax = 0;
 
@@ -808,6 +809,28 @@ void App::collision(string ent, XMFLOAT3& curPos, float dt) {
 				}
 			}
 
+			// handling skull collisions
+			for (int i = 0; i < skullCount; i++) { 
+				string entname = "skull" + std::to_string(i);
+				if (it->first.compare(entname) == 0) {
+					XMFLOAT3 newPos = FindEnt(ent)->GetStartPosition3f();
+					boxOffset = XMMatrixTranslation(newPos.x - pos.x, newPos.y - pos.y, newPos.z - pos.z);
+					FindEnt(ent)->returnToStart();
+					mCamera.SetPosition(FindEnt(ent)->getHPos());
+					mCamera.UpdateViewMatrix();
+					pos = newPos;
+
+					XMMATRIX boxWorld = boxRotate * boxScale * boxOffset;
+					XMStoreFloat4x4(&firstbox->World, boxWorld);
+					XMStoreFloat4x4(&FindEnt(ent)->World, boxWorld);
+
+					FindEnt(ent)->calcAABB(boxBoundingVertPosArray);
+					calcAABB(boxBoundingVertPosArray, firstbox->World, firstbox->boundingboxminvertex, firstbox->boundingboxmaxvertex);
+
+				}
+			
+			}
+
 		}
 		else {
 			//OutputDebugString(L"No collision \n");
@@ -932,28 +955,23 @@ void App::UpdatePlayer2(const GameTimer& gt) {
 
 void App::MoveSkulls(const GameTimer& gt) {
 	const float dt = gt.DeltaTime();
-
 	for (auto& e : mAllRitems) {
-
-		UINT curIndex = e->ObjCBIndex - skullCbIndexStart;
 		if (e->ObjCBIndex >= skullCbIndexStart && e->ObjCBIndex < skullCbIndexMax) {
+			UINT curIndex = e->ObjCBIndex - skullCbIndexStart;
 			string entname = "skull" + std::to_string(curIndex);
 			XMMATRIX world = XMLoadFloat4x4(&e->World);
 
 			if (skullControllers[curIndex].isInRange(FindEnt("player"))) {
 				Entity* target = skullControllers[curIndex].CalcClosest(FindEnt("player"), nullptr);
-				XMFLOAT3 skullPrevPos = FindEnt(entname)->GetPosition3f();
 				XMFLOAT3 skullMov = skullControllers[curIndex].CalcMove(target);
-
 				XMMATRIX skullOffset = XMMatrixTranslation(skullMov.x * dt, skullMov.y * dt, skullMov.z * dt);
+
 				XMMATRIX skullWorld = world * skullOffset;
 
 				XMStoreFloat4x4(&e->World, skullWorld);
 				XMStoreFloat4x4(&FindEnt(entname)->World, skullWorld);
-
 			}
 			else {
-
 				XMStoreFloat4x4(&e->World, world);
 				XMStoreFloat4x4(&FindEnt(entname)->World, world);
 			}
@@ -2067,25 +2085,26 @@ void App::BuildRenderItems()
 
 		//code needed to check for collision between entities
 		string skullEntname = "skull" + std::to_string(2 * i);
-		//OutputDebugStringA(leftSkullEntname.c_str());
+		//OutputDebugStringA(skullEntname.c_str());
 		//OutputDebugString(L"\n");
 		BuildEnt(skullEntname);
-		SkullAI skullCtrl1(FindEnt(skullEntname));
-		skullControllers.push_back(skullCtrl1);
 		XMStoreFloat4x4(&FindEnt(skullEntname)->World, skullSize * leftSkullWorld);
 		FindEnt(skullEntname)->SetPosition({ -15.0f, -1.0f, 20.0f + i * 20.0f });
+		FindEnt(skullEntname)->SetPositionStart();
+		SkullAI skullCtrl1(FindEnt(skullEntname));
+		skullControllers.push_back(skullCtrl1);
 		FindEnt(skullEntname)->calcAABB(skullBoundingVertPosArray);
 
 		skullEntname = "skull" + std::to_string(2 * i + 1);
 		BuildEnt(skullEntname);
-		SkullAI skullCtrl2(FindEnt(skullEntname));
-		skullControllers.push_back(skullCtrl2);
 		XMStoreFloat4x4(&FindEnt(skullEntname)->World, skullSize * rightSkullWorld);
 		FindEnt(skullEntname)->SetPosition({ 15.0f, -1.0f, 20.0f + i * 20.0f });
+		FindEnt(skullEntname)->SetPositionStart();
+		SkullAI skullCtrl2(FindEnt(skullEntname));
+		skullControllers.push_back(skullCtrl2);
 		FindEnt(skullEntname)->calcAABB(skullBoundingVertPosArray);
 	}
 	skullCbIndexMax = objCBIndex;
-
 }
 
 void App::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
