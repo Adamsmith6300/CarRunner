@@ -31,6 +31,7 @@ public:
 
 	void setAnglePositive();
 	void setAngleNegative();
+	void setAngle(float input);
 	void setZIntentPositive();
 	void setZIntentNegative();
 	void setXIntentPositive();

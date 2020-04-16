@@ -170,10 +170,10 @@ void Physics::handleCollision(Entity* firstEntity, Entity* secondEntity, POS& po
 	if (ax <= ay && ax <= az) {
 		
 		if (sx > 0) {
-			first->setXIntentPositive();
+			pos.x += 0.25;
 		}
 		else {
-			first->setXIntentNegative();
+			pos.x -= 0.25;
 		}
 	}
 	else if (ay <= az) {
@@ -186,27 +186,20 @@ void Physics::handleCollision(Entity* firstEntity, Entity* secondEntity, POS& po
 		else {
 			vel.y = 0;
 			pos.y -= 0.01;
-		}
-		/*std::wostringstream ss;
-		ss << sy << std::endl;
-		OutputDebugString(ss.str().c_str()); */		
+		}	
 
 		first->setVelocity(vel);
 		first->resetJump(true);
 	}
 	else {
-		//pos.z += firstEntity.GetPhysHolder()->getVelocity().z * sz;
-		//pos.z += speed * sz;
+
 		if (sz > 0) {
-			first->setZIntentPositive();
+			pos.z += 0.25;
 		}
 		else {
-			first->setZIntentNegative();
+			pos.z -= 0.25;
 		}
 	}
-
-	//firstEntity.SetPosition(pos);
-
 }
 
 XMFLOAT3 Physics::makeCeil(XMFLOAT3 first, XMFLOAT3 second)
