@@ -395,7 +395,7 @@ bool D3DApp::InitMainWindow()
 		MessageBox(0, L"CreateWindow Failed.", 0, 0);
 		return false;
 	}
-	HWND hWndEdit = CreateWindow(TEXT("Static"), TEXT("\n Press 1 to Create Server.\n\n Press 2 to Connect as Client.\n"), WS_CHILD | WS_VISIBLE | WS_BORDER, (mClientWidth/2) - 125, (mClientHeight / 2) - 100, 250, 85, mhMainWnd, NULL, NULL, NULL);
+	HWND hWndEdit = CreateWindow(TEXT("Static"), TEXT("\n Press 1 to Create Server.\n\n Press 2 to Connect as Client.\n\n Press 3 for Single Player Mode.\n"), WS_CHILD | WS_VISIBLE | WS_BORDER, (mClientWidth/2) - 125, (mClientHeight / 2) - 100, 250, 110, mhMainWnd, NULL, NULL, NULL);
 	
 
 	ShowWindow(mhMainWnd, SW_SHOW);

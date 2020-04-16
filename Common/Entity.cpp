@@ -39,6 +39,11 @@ POS Entity::GetPosition3f()const
 	return mPosition;
 }
 
+POS Entity::GetStartPosition3f()const
+{
+	return startPosition;
+}
+
 void Entity::SetPosition(float x, float y, float z)
 {
 	mPosition = POS(x, y, z);
@@ -48,6 +53,15 @@ void Entity::SetPosition(float x, float y, float z)
 void Entity::SetPosition(const POS& v)
 {
 	mPosition = v;
+	updateHPos();
+}
+
+void Entity::SetPositionStart() {
+	startPosition = mPosition;
+}
+
+void Entity::returnToStart() {
+	mPosition = startPosition;
 	updateHPos();
 }
 

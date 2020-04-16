@@ -63,9 +63,12 @@ void Client::start() {
 			string msg = string(buf, 0, bytesReceived);
 			/*consoleOutput = L"SERVER> " + charMsgToWString(msg) + L"\n";
 			OutputDebugString(consoleOutput.c_str());*/
+			if ((msg.compare("$$$$$")) == 0) {
+				gameActive = false;
+				winner = -1;
+			}
 			
-			
-			if (gameStarted) {
+			if (gameActive) {
 				std::vector<string> bufferPos;
 				string word = "";
 				for (auto x : msg)
@@ -105,7 +108,7 @@ void Client::start() {
 				//otherPlayer->NumFramesDirty++;
 			}
 			if ((msg.compare("#####")) == 0) {
-				gameStarted = true;
+				gameActive = true;
 				//OutputDebugString(L"EQUAL");
 			}
 			
@@ -176,4 +179,12 @@ void Client::sendToServer(float x, float y, float z) {
 
 	int sendResult = send(sock, msg, sizeof buffer, 0);
 
+}
+
+void Client::sendToServerWin() {
+	char buf[] = "$$$$$";
+	const char* msg = buf;
+	send(sock, msg, sizeof buf, 0);
+	gameActive = false;
+	winner = 1;
 }

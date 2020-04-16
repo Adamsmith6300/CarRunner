@@ -17,10 +17,12 @@ public:
     ~Client();
     void start();
     void sendToServer(float x, float y, float z);
+    void sendToServerWin();
     wstring charMsgToWString(string& str);
     void setPlayer(RenderItem* oth) { otherPlayer = oth; };
 
-    bool gameStarted = false;
+    bool gameActive = false;
+    int winner = 0;
 
 private:
     string ipAddress;			// IP Address of the server
