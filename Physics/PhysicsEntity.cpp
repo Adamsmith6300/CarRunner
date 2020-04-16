@@ -37,6 +37,7 @@ void PhysicsEntity::setAngleNegative()
 
 void PhysicsEntity::setAngle(float input)
 {
+	
 	fAngle += input;
 }
 

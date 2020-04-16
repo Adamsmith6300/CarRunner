@@ -59,8 +59,6 @@ private:
     virtual void Update(const GameTimer& gt)override;
     virtual void Draw(const GameTimer& gt)override;
 
-    virtual void OnMouseDown(WPARAM btnState, int x, int y)override;
-    virtual void OnMouseUp(WPARAM btnState, int x, int y)override;
     virtual void OnMouseMove(WPARAM btnState, int x, int y)override;
 
 	void OnKeyboardInput(const GameTimer& gt);
@@ -485,19 +483,6 @@ void App::Draw(const GameTimer& gt)
 	// Because we are on the GPU timeline, the new fence point won't be 
 	// set until the GPU finishes processing all the commands prior to this Signal().
 	mCommandQueue->Signal(mFence.Get(), mCurrentFence);
-}
-
-void App::OnMouseDown(WPARAM btnState, int x, int y)
-{
-    mLastMousePos.x = x;
-    mLastMousePos.y = y;
-
-    SetCapture(mhMainWnd);
-}
-
-void App::OnMouseUp(WPARAM btnState, int x, int y)
-{
-    ReleaseCapture();
 }
 
 void App::OnMouseMove(WPARAM btnState, int x, int y)
