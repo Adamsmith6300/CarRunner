@@ -157,6 +157,7 @@
     <ClCompile Include="FrameResource.cpp" />
     <ClCompile Include="App.cpp" />
     <ClCompile Include="Server.cpp" />
+    <ClCompile Include="SkullAI.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Common\Camera.h" />
@@ -175,6 +176,7 @@
     <ClInclude Include="FrameResource.h" />
     <ClInclude Include="RenderItem.h" />
     <ClInclude Include="Server.h" />
+    <ClInclude Include="SkullAI.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\Textures\bricks2.dds" />

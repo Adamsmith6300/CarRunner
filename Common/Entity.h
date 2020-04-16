@@ -10,6 +10,7 @@ class Entity
 {
 private:
 	POS mPosition;
+	POS startPosition;
 	POS mHeadPos;
 	float headOffset = 3;
 	POS mRight;
@@ -34,10 +35,14 @@ public:
 	POS boundingboxmaxvertex;
 	DIRV GetPosition()const;
 	POS GetPosition3f()const;
+	POS GetStartPosition3f()const;
 	void SetPosition(float x, float y, float z);
+	void SetPositionStart();
 	void SetPosition(const POS& v);
 	void updateHPos();
 	POS getHPos();
+
+	void returnToStart();
 	
 	DIRV GetRight()const;
 	POS GetRight3f()const;
