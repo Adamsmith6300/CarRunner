@@ -1150,7 +1150,8 @@ void App::LoadTextures()
 		"bricksDiffuseMap",
 		"tileDiffuseMap",
 		"defaultDiffuseMap",
-		"skyCubeMap"
+		"skyCubeMap",
+		"carDiffuseMap"
 	};
 
 	std::vector<std::wstring> texFilenames =
@@ -1158,7 +1159,8 @@ void App::LoadTextures()
 		L"../../Textures/purplegems.dds",
 		L"../../Textures/tile.dds",
 		L"../../Textures/concreteroad.dds",
-		L"../../Textures/snowcube1024.dds"
+		L"../../Textures/streetSkybox.dds",
+		L"../../Textures/metalSurface.dds"
 	};
 
 	for (int i = 0; i < (int)texNames.size(); ++i)
@@ -1200,7 +1202,7 @@ void App::BuildDescriptorHeaps()
 	// Create the SRV heap.
 	//
 	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.NumDescriptors = 5;
+	srvHeapDesc.NumDescriptors = 6;
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	ThrowIfFailed(md3dDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrvDescriptorHeap)));
@@ -1214,6 +1216,7 @@ void App::BuildDescriptorHeaps()
 	auto tileTex = mTextures["tileDiffuseMap"]->Resource;
 	auto whiteTex = mTextures["defaultDiffuseMap"]->Resource;
 	auto skyTex = mTextures["skyCubeMap"]->Resource;
+	auto carTex = mTextures["carDiffuseMap"]->Resource;
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -1249,6 +1252,14 @@ void App::BuildDescriptorHeaps()
 	md3dDevice->CreateShaderResourceView(skyTex.Get(), &srvDesc, hDescriptor);
 
 	mSkyTexHeapIndex = 3;
+	
+	// next descriptor
+	hDescriptor.Offset(1, mCbvSrvDescriptorSize);
+
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Format = carTex->GetDesc().Format;
+	srvDesc.Texture2D.MipLevels = carTex->GetDesc().MipLevels;
+	md3dDevice->CreateShaderResourceView(carTex.Get(), &srvDesc, hDescriptor);
 }
 
 
@@ -1456,64 +1467,6 @@ void App::BuildShapeGeometry()
 	mGeometries[geo->Name] = std::move(geo);
 }
 
-//void App::BuildSkyBoxGeometry()
-//{
-//	GeometryGenerator geoGen;
-//	GeometryGenerator::MeshData skyBox = geoGen.CreateBox(100.0f, 100.0f, 100.0f, 3);
-//
-//	UINT skyBoxVertexOffset = 0;
-//
-//	UINT skyBoxIndexOffset = 0;
-//
-//	SubmeshGeometry skyBoxSubmesh;
-//	skyBoxSubmesh.IndexCount = (UINT)skyBox.Indices32.size();
-//	skyBoxSubmesh.StartIndexLocation = skyBoxIndexOffset;
-//	skyBoxSubmesh.BaseVertexLocation = skyBoxVertexOffset;
-//
-//	auto totalVertexCount =
-//		skyBox.Vertices.size();
-//
-//	std::vector<Vertex> vertices(totalVertexCount);
-//
-//	UINT k = 0;
-//	for (size_t i = 0; i < skyBox.Vertices.size(); ++i, ++k)
-//	{
-//		vertices[k].Pos = skyBox.Vertices[i].Position;
-//		vertices[k].Color = XMFLOAT4(DirectX::Colors::SkyBlue);
-//	}
-//
-//	std::vector<std::uint16_t> indices;
-//	indices.insert(indices.end(), std::begin(skyBox.GetIndices16()), std::end(skyBox.GetIndices16()));
-//
-//	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
-//	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
-//
-//	auto geo = std::make_unique<MeshGeometry>();
-//	geo->Name = "skyBoxGeo";
-//
-//	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
-//	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
-//
-//	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
-//	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
-//
-//	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
-//		mCommandList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
-//
-//	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
-//		mCommandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
-//
-//	geo->VertexByteStride = sizeof(Vertex);
-//	geo->VertexBufferByteSize = vbByteSize;
-//	geo->IndexFormat = DXGI_FORMAT_R16_UINT;
-//	geo->IndexBufferByteSize = ibByteSize;
-//
-//	geo->DrawArgs["skyBox"] = skyBoxSubmesh;
-//
-//	mGeometries[geo->Name] = std::move(geo);
-//}
-
-
 void App::BuildplatformGeometry()
 {
 	GeometryGenerator geoGen;
@@ -1594,10 +1547,9 @@ void App::BuildTruckGeometry()
 	for (UINT i = 0; i < vcount; ++i)
 	{
 		fin >> vertices[i].Pos.x >> vertices[i].Pos.y >> vertices[i].Pos.z;
-		//fin >> vertices[i].TexC.x >> vertices[i].TexC.y;
-		/*vertices[i].TexC.x = vertices[i].Pos.x;
-		vertices[i].TexC.y = vertices[i].Pos.y;*/
 		fin >> vertices[i].Normal.x >> vertices[i].Normal.y >> vertices[i].Normal.z;
+		vertices[i].TexC.x = vertices[i].Normal.x;
+		vertices[i].TexC.y = vertices[i].Normal.y;
 	}
 
 	fin >> ignore;
@@ -1807,7 +1759,7 @@ void App::BuildMaterials()
 	bricks0->DiffuseSrvHeapIndex = 0;
 	bricks0->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	bricks0->FresnelR0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
-	bricks0->Roughness = 0.3f;
+	bricks0->Roughness = 0.9f;
 
 	auto tile0 = std::make_unique<Material>();
 	tile0->Name = "tile0";
@@ -1840,12 +1792,21 @@ void App::BuildMaterials()
 	sky->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	sky->FresnelR0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
 	sky->Roughness = 1.0f;
+	
+	auto car = std::make_unique<Material>();
+	car->Name = "car";
+	car->MatCBIndex = 5;
+	car->DiffuseSrvHeapIndex = 4;
+	car->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	car->FresnelR0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
+	car->Roughness = 1.0f;
 
 	mMaterials["bricks0"] = std::move(bricks0);
 	mMaterials["tile0"] = std::move(tile0);
 	mMaterials["mirror0"] = std::move(mirror0);
 	mMaterials["skullMat"] = std::move(skullMat);
 	mMaterials["sky"] = std::move(sky);
+	mMaterials["car"] = std::move(car);
 }
 
 void App::BuildRenderItems()
@@ -1983,7 +1944,7 @@ void App::BuildRenderItems()
 		XMStoreFloat4x4(&platformRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 		platformRitem->ObjCBIndex = objCBIndex++;
 		string entname = "block" + std::to_string(platformRitem->ObjCBIndex);
-		platformRitem->Mat = mMaterials["bricks0"].get();
+		platformRitem->Mat = mMaterials["car"].get();
 		platformRitem->Geo = mGeometries["semitruckGeo"].get();
 		platformRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 		platformRitem->IndexCount = platformRitem->Geo->DrawArgs["semitruck"].IndexCount;
@@ -2007,7 +1968,7 @@ void App::BuildRenderItems()
 		XMStoreFloat4x4(&platformRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 		platformRitem->ObjCBIndex = objCBIndex++;
 		string entname = "block" + std::to_string(platformRitem->ObjCBIndex);
-		platformRitem->Mat = mMaterials["bricks0"].get();
+		platformRitem->Mat = mMaterials["car"].get();
 		platformRitem->Geo = mGeometries["semitruckGeo"].get();
 		platformRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 		platformRitem->IndexCount = platformRitem->Geo->DrawArgs["semitruck"].IndexCount;
@@ -2030,7 +1991,7 @@ void App::BuildRenderItems()
 		XMStoreFloat4x4(&platformRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 		platformRitem->ObjCBIndex = objCBIndex++;
 		string entname = "block" + std::to_string(platformRitem->ObjCBIndex);
-		platformRitem->Mat = mMaterials["bricks0"].get();
+		platformRitem->Mat = mMaterials["car"].get();
 		platformRitem->Geo = mGeometries["semitruckGeo"].get();
 		platformRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 		platformRitem->IndexCount = platformRitem->Geo->DrawArgs["semitruck"].IndexCount;
@@ -2045,22 +2006,6 @@ void App::BuildRenderItems()
 		XMStoreFloat4x4(&FindEnt(entname)->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, -0.8f, (i * 12.0f)));
 		FindEnt(entname)->calcAABB(carBoundingVertPosArray);
 	}
-
-	BuildEnt("car");
-	auto platformRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&FindEnt("car")->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, 2.0f, 5.0f) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
-	XMStoreFloat4x4(&platformRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(5.0f, 2.0f, 5.0f) * XMMatrixRotationRollPitchYaw(0.0f, 3.14f, 0.0f));
-	XMStoreFloat4x4(&platformRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
-	platformRitem->ObjCBIndex = objCBIndex++;
-	platformRitem->Mat = mMaterials["bricks0"].get();
-	platformRitem->Geo = mGeometries["semitruckGeo"].get();
-	platformRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	platformRitem->IndexCount = platformRitem->Geo->DrawArgs["semitruck"].IndexCount;
-	platformRitem->StartIndexLocation = platformRitem->Geo->DrawArgs["semitruck"].StartIndexLocation;
-	platformRitem->BaseVertexLocation = platformRitem->Geo->DrawArgs["semitruck"].BaseVertexLocation;
-	mRitemLayer[(int)RenderLayer::Opaque].push_back(platformRitem.get());
-	mAllRitems.push_back(std::move(platformRitem));
-	FindEnt("car")->calcAABB(carBoundingVertPosArray);
 
 	skullCbIndexStart = objCBIndex;
 	for (int i = 0; i < 5; ++i) {
