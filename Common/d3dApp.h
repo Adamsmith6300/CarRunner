@@ -37,7 +37,7 @@ public:
     bool Get4xMsaaState()const;
     void Set4xMsaaState(bool value);
 
-	int Run();
+    virtual int Run();
  
     virtual bool Initialize();
     virtual LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -66,7 +66,7 @@ protected:
 	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView()const;
 	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView()const;
 
-	void CalculateFrameStats();
+	virtual void CalculateFrameStats();
 
     void LogAdapters();
     void LogAdapterOutputs(IDXGIAdapter* adapter);
